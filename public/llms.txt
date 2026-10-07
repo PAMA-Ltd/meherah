@@ -1,8 +1,8 @@
-# Skarm
+# Meherah
 
-> Skarm is an AI-native issue tracker for teams that plan, track, and ship together. It pairs a keyboard-first workspace (issues, boards, projects, cycles) with an AI agent, a dependency graph, email digests, and two-way GitHub and Figma sync.
+> Meherah is an AI-native issue tracker for teams that plan, track, and ship together. It pairs a keyboard-first workspace (issues, boards, projects, cycles) with an AI agent, a dependency graph, email digests, and two-way GitHub and Figma sync.
 
-Skarm is a multi-tenant SaaS built with Next.js 16 (App Router), Convex (real-time backend), and Clerk (auth and billing). Every workspace is a Clerk organization; each organization has teams, and teams own issues identified by keys like ENG-42. Plans are Free, Pro, and Enterprise, with server-enforced limits.
+Meherah is a multi-tenant SaaS built with Next.js 16 (App Router), Convex (real-time backend), and Clerk (auth and billing). Every workspace is a Clerk organization; each organization has teams, and teams own issues identified by keys like ENG-42. Plans are Free, Pro, and Enterprise, with server-enforced limits.
 
 Tagline: Ship at the speed of thought.
 
@@ -23,15 +23,15 @@ Tagline: Ship at the speed of thought.
 
 ## Documentation
 
-- [README](https://github.com/MasterBhuvnesh/skarm/blob/main/.github/README.md): Full feature list, architecture, database schema, and project structure.
-- [Configuration guide](https://github.com/MasterBhuvnesh/skarm/blob/main/.docs/CONFIGURE.md): Setup for Clerk, Convex, environment variables, AI models, and email digests.
-- [Feature roadmap](https://github.com/MasterBhuvnesh/skarm/blob/main/.docs/FEATURES.md): Prioritized wishlist of features to add.
+- [README](https://github.com/PAMA-Ltd/meherah/blob/main/.github/README.md): Full feature list, architecture, database schema, and project structure.
+- [Configuration guide](https://github.com/PAMA-Ltd/meherah/blob/main/.docs/CONFIGURE.md): Setup for Clerk, Convex, environment variables, AI models, and email digests.
+- [Feature roadmap](https://github.com/PAMA-Ltd/meherah/blob/main/.docs/FEATURES.md): Prioritized wishlist of features to add.
 
 ## Integrations
 
-- [GitHub app overview](https://github.com/MasterBhuvnesh/skarm/blob/main/.docs/skarm-ai-about.md): What the skarm-ai GitHub App does and the permissions it requests.
-- [GitHub app reference](https://github.com/MasterBhuvnesh/skarm/blob/main/.docs/GITHUB_APP.md): Settings, environment variables, and how the install and sync flow works.
+- [GitHub app overview](https://github.com/PAMA-Ltd/meherah/blob/main/.docs/skarm-ai-about.md): What the skarm-ai GitHub App does and the permissions it requests.
+- [GitHub app reference](https://github.com/PAMA-Ltd/meherah/blob/main/.docs/GITHUB_APP.md): Settings, environment variables, and how the install and sync flow works.
 
 ## Optional
 
-- [Source repository](https://github.com/MasterBhuvnesh/skarm): The full codebase.
+- [Source repository](https://github.com/PAMA-Ltd/meherah): The full codebase.

@@ -1,6 +1,6 @@
 # CONTRIBUTING
 
-Thanks for helping improve Skarm. By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+Thanks for helping improve Meherah. By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## SETUP
 

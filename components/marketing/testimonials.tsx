@@ -27,7 +27,7 @@ const TESTIMONIALS: {
   },
   {
     quote:
-      "Skarm is the first tracker our engineers don’t complain about. ⌘K does everything, and the board never lags.",
+      "Meherah is the first tracker our engineers don’t complain about. ⌘K does everything, and the board never lags.",
     name: "Ada Okafor",
     role: "CTO",
     company: "Hexa Labs",

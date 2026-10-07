@@ -94,7 +94,7 @@ export function PublicIssueView({ issue }: { issue: SharedIssue }) {
             href="/"
             className="underline underline-offset-2 hover:text-foreground"
           >
-            Skarm
+            Meherah
           </Link>
           , the AI-native issue tracker.
         </p>

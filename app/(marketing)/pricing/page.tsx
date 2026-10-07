@@ -35,14 +35,7 @@ export default function PricingPage() {
 
       <p className="mt-8 text-center text-xs text-muted-foreground">
         All prices in USD. Annual billing shows the per-month equivalent.
-        Questions about Enterprise?{" "}
-        <a
-          href="mailto:sales@skarm.studzee.in"
-          className="text-foreground underline-offset-4 hover:underline"
-        >
-          Talk to us
-        </a>
-        .
+        Enterprise support is included with the Enterprise plan.
       </p>
     </main>
   );

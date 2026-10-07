@@ -77,7 +77,7 @@ export function UpgradePromptDialog({
               planPeriod="month"
               for="organization"
               onSubscriptionComplete={() => {
-                toast.success("Welcome to Skarm Pro");
+                toast.success("Welcome to Meherah Pro");
                 onOpenChange(false);
               }}
               newSubscriptionRedirectUrl={

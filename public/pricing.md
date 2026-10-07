@@ -1,6 +1,6 @@
-# Skarm pricing
+# Meherah pricing
 
-Skarm is an AI-native issue tracker. Every workspace starts on the Free plan.
+Meherah is an AI-native issue tracker. Every workspace starts on the Free plan.
 Paid plans lift the limits and unlock the AI agent. All limits are enforced
 on the server, so they are authoritative rather than cosmetic.
 
@@ -26,7 +26,7 @@ on the server, so they are authoritative rather than cosmetic.
 
 ## Free
 
-Best for trying Skarm or running a small team.
+Best for trying Meherah or running a small team.
 
 - 3 members
 - 2 projects

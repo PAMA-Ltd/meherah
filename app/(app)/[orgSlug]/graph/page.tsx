@@ -51,7 +51,7 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 const nodeTypes = { issue: IssueNode };
 
-const DRAG_TYPE = "application/skarm-issue";
+const DRAG_TYPE = "application/meherah-issue";
 
 type GraphData = FunctionReturnType<typeof api.graph.forScope>;
 type RelationType = "blocks" | "blocked_by" | "related" | "duplicate_of";

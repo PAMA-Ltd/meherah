@@ -28,7 +28,7 @@ export default function MarketingLayout({
             className="flex items-center gap-2 text-[15px] font-semibold tracking-tight"
           >
             <SkarmLogo size={26} tile />
-            Skarm
+            Meherah
           </Link>
 
           <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">

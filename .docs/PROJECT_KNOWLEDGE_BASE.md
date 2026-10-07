@@ -1,6 +1,6 @@
-# Skarm — PROJECT_KNOWLEDGE_BASE.md
+# Meherah — PROJECT_KNOWLEDGE_BASE.md
 
-> Single comprehensive knowledge base for the Skarm repository at `D:\Cloning Github\skarm`.
+> Single comprehensive knowledge base for the Meherah repository at `D:\Cloning Github\skarm`.
 > Derived from actual code, config, schema, and docs. A new engineer should be able to become productive from this document alone.
 > Generated 2026-09-21. All file paths are repo-relative unless stated absolute.
 
@@ -36,10 +36,10 @@
 
 | Field | Value (verified) |
 |---|---|
-| Project name | Skarm (`package.json:name=skarm`, `version 0.1.0`, `private:true`) |
+| Project name | Meherah (`package.json:name=skarm`, `version 0.1.0`, `private:true`) |
 | Product category | B2B multi-tenant SaaS, Linear clone, AI-native issue tracker |
 | Tagline | "Ship at the Speed of Thought" (`app/layout.tsx` metadata) |
-| Description | "Skarm is the AI-native issue tracker for modern teams. Plan, track, and ship faster with keyboard-first workflows and intelligent automation." |
+| Description | "Meherah is the AI-native issue tracker for modern teams. Plan, track, and ship faster with keyboard-first workflows and intelligent automation." |
 | Target users | Software product teams (engineers, PMs, designers) organized in organizations, teams, projects, cycles |
 | Core objectives | Plan, track, ship: issues with Linear-style workflow (teams, boards, cycles, projects), realtime collaboration, GitHub/Figma integrations, AI agent with workspace context |
 | Key business value | Keyboard-first speed + AI triage/duplicate detection/standup reports + predictable per-seat SaaS billing via Clerk |
@@ -73,7 +73,7 @@ What makes it different? Convex realtime reactivity (no REST polling), Clerk as 
 | `next.config.ts` | Minimal: `{ reactCompiler: true }` (React 19 compiler). |
 | `components.json` | shadcn: `style radix-nova`, `rsc true`, `tsx true`, `tailwind css app/globals.css`, `baseColor neutral`, `cssVariables true`, `iconLibrary lucide`, aliases `components→@/components` etc. |
 | `proxy.ts` | Next 16 middleware (renamed from `middleware.ts`). `clerkMiddleware`: public routes `/`, `/pricing(.*)`, `/sign-in(.*)`, `/sign-up(.*)`, `/share(.*)`; else `auth.protect()`. Matcher skips internals/static + always runs for `api/trpc`. |
-| `app/layout.tsx` | Root layout: Geist fonts, `Providers`, global `Toaster`, SEO metadata (`metadataBase=SITE_URL`, title template `%s · Skarm`). |
+| `app/layout.tsx` | Root layout: Geist fonts, `Providers`, global `Toaster`, SEO metadata (`metadataBase=SITE_URL`, title template `%s · Meherah`). |
 | `app/globals.css` | Tailwind 4 imports (`tailwindcss`, `tw-animate-css`, `shadcn/tailwind.css`, `@clerk/ui/themes/shadcn.css`), `@source streamdown`, `@custom-variant dark`, `@theme inline` token mapping, `:root`/`.dark` oklch tokens (dark default), 4px thin scrollbars, chrome-only `user-select:none`, Clerk OrganizationSwitcher fixes, print stylesheet for share PDF export. |
 | `.env.example` | Canonical env template (27 lines). See §14. |
 | `.env.local` | Local secrets (gitignored). Keys present (values redacted, see §14). Contains real test secrets in this checkout; do not commit. |
@@ -106,7 +106,7 @@ No `Dockerfile`, `docker-compose.*`, `turbo.json`, `nx.json`, `lerna.json`, Terr
 
 ### 3.1 Project Overview (expanded)
 
-- **Name:** Skarm.
+- **Name:** Meherah.
 - **Category:** B2B SaaS project management / issue tracking (Linear clone).
 - **Users:** Organizations (Clerk orgs) with 1 to unlimited members depending on plan. Two roles: `admin` and `member`.
 - **Objectives:** Provide teams, issues, boards, cycles, projects, collaboration, AI, and integrations in one realtime workspace.
@@ -553,8 +553,8 @@ Tools (9): `listTeams`, `listMembers`, `projectStatus`, `searchIssues`, `findSim
 
 - **Connect:** `beginInstall orgAdminMutation` requires `GITHUB_APP_SLUG`, inserts `{orgId,userId,nonce:uuid}` → returns `github.com/apps/<slug>/installations/new?state=nonce`. User picks repos.
 - **Callback:** `GET /github-setup?installation_id&state` → `completeSetup internalMutation` (15m TTL, single-use delete, upserts `integrations{github,installationId,enabled:true}`, schedules `syncRepositories`) → 302 `/{slug}/settings/integrations`.
-- **Webhooks:** HMAC-SHA256 verify → installation events (merge repo sets, `deleted` drops binding) → issues/comments non-Bot only → `applyGithubIssueEvent{edited|closed|reopened|commented}` (footer strip `Skarm|Cohere`, `closed→done/canceled via state_reason`, `reopened→todo`, `commented→externalAuthor comment`, all `systemActor:github`, never outbound push) → PR events → `handlePullRequest` (regex `\b([A-Za-z]{1,10})-(\d{1,6})\b` → team → issue, upsert `by_org_repo_number`, `open→in_review`, `merged→done`, activity+notifs, `pushIssueUpdate`, self-heals repo list).
-- **Sync out:** `github/client.ts` (`"use node"`, RS256 `GITHUB_APP_ID/PRIVATE_KEY` raw/`\n`/base64, 9m JWT, fresh installation token per call): `list/refresh/syncRepositories`, `pushIssue` (creates twin with footer `_Synced from Skarm **KEY-n**_` → `recordGithubIssue`), `pushIssueUpdate` (PATCH title/body/state+`state_reason`), `push/deleteAttachmentComments` (tracked, 404-tolerant). Failures → `recordSyncFailure` (`github_sync_failed` 140 chars), never throw.
+- **Webhooks:** HMAC-SHA256 verify → installation events (merge repo sets, `deleted` drops binding) → issues/comments non-Bot only → `applyGithubIssueEvent{edited|closed|reopened|commented}` (footer strip `Meherah|Cohere`, `closed→done/canceled via state_reason`, `reopened→todo`, `commented→externalAuthor comment`, all `systemActor:github`, never outbound push) → PR events → `handlePullRequest` (regex `\b([A-Za-z]{1,10})-(\d{1,6})\b` → team → issue, upsert `by_org_repo_number`, `open→in_review`, `merged→done`, activity+notifs, `pushIssueUpdate`, self-heals repo list).
+- **Sync out:** `github/client.ts` (`"use node"`, RS256 `GITHUB_APP_ID/PRIVATE_KEY` raw/`\n`/base64, 9m JWT, fresh installation token per call): `list/refresh/syncRepositories`, `pushIssue` (creates twin with footer `_Synced from Meherah **KEY-n**_` → `recordGithubIssue`), `pushIssueUpdate` (PATCH title/body/state+`state_reason`), `push/deleteAttachmentComments` (tracked, 404-tolerant). Failures → `recordSyncFailure` (`github_sync_failed` 140 chars), never throw.
 - **UI:** `IntegrationsManager` (enabled switch, repo grid+filter+refresh, admin-only, disconnect keeps PRs); `PullRequestsPanel` (hidden if empty, state icons green/purple/red + `repo#number`).
 
 ### 11.2 Figma
@@ -562,12 +562,12 @@ Tools (9): `listTeams`, `listMembers`, `projectStatus`, `searchIssues`, `findSim
 - **Connect:** `beginFigmaConnect` (reuses `githubInstallStates` nonce, requires `FIGMA_CLIENT_ID`, scopes `file_content:read file_metadata:read file_comments:write file_versions:read file_dev_resources:write`, redirect `{CONVEX_SITE_URL}/figma-callback`) → `GET /figma-callback?code&state` exchanges `POST api.figma.com/v1/oauth/token` (Basic) → `completeFigmaSetup` (15m TTL, upserts tokens) → 302.
 - **Tokens:** `ensureToken` (cached if `expiresAt>now+60s` else refresh + `saveTokens`). Never to clients (`getOrgFigmaAuth internalQuery` only).
 - **Linking:** `addLink{issueId,url}` (parse `figma.com/file|design|proto|board/<key>?node-id`, requires enabled+token, dedupe file+node, `fetchPreview`, `figma_linked` log). Auto-detect `FIGMA_URL_REGEX` in issue/comment descriptions.
-- **Previews:** `fetchPreview internalAction` (GET `/files/{key}` or `/nodes` + `/images`, saves `name/thumbnailUrl/lastModified`; frame links create Dev resource `POST /dev_resources {name:ENG-42 · Status · Title ≤120, url:{siteUrl}/{slug}/issue/{id}}`). `updateDevResources` renames on title/status (via `scheduleFigmaDevSync`), `deleteDevResource` on unlink. `pushComment` posts `"{author} via Skarm {id}: {body}"`.
+- **Previews:** `fetchPreview internalAction` (GET `/files/{key}` or `/nodes` + `/images`, saves `name/thumbnailUrl/lastModified`; frame links create Dev resource `POST /dev_resources {name:ENG-42 · Status · Title ≤120, url:{siteUrl}/{slug}/issue/{id}}`). `updateDevResources` renames on title/status (via `scheduleFigmaDevSync`), `deleteDevResource` on unlink. `pushComment` posts `"{author} via Meherah {id}: {body}"`.
 - **UI:** `FigmaCard` (connect/enable/disconnect, redirect URI hint), `figma-panel.tsx` (hidden if disconnected+no links, thumbnail cards + relative time + "in Dev Mode").
 
 ### 11.3 Email digests (`nodemailer`, not Resend)
 
-- Transport: `createTransport({host:SMTP_HOST??smtp.gmail.com, port:SMTP_PORT??465, secure, auth:{SMTP_USER,SMTP_PASSWORD}})`, from `SMTP_FROM??Skarm <no-reply@example.com>`, links `SITE_URL`.
+- Transport: `createTransport({host:SMTP_HOST??smtp.gmail.com, port:SMTP_PORT??465, secure, auth:{SMTP_USER,SMTP_PASSWORD}})`, from `SMTP_FROM??Meherah <no-reply@example.com>`, links `SITE_URL`.
 - Settings per org+user: `enabled, timeOfDay morning(8)/evening(18)/any(9), frequency daily/weekly([d])/custom([d…]), sections{assigned,inProgress,mentions,focus}, tzOffsetMinutes, lastSentDay/At`. Validation enforces weekday/section rules.
 - Content: assigned/open mine (300 cap), focus `urgent OR due<72h` sorted, mentions since `lastSentAt??24h` (20 cap each), paths `/{slug}/issue/{id}`. Null if user/org gone.
 - Delivery: `deliver{digestId,force?}` (skip if SMTP unset/empty unless force, `renderDigestHtml`, subject with counts, `markSent` sets `lastSentDay`). Cron hourly `sweep` via `listDue(now)` (local hour + weekday + once-a-day guard). `testTo{to}` plumbing check + `sendTest` UI button.
@@ -645,7 +645,7 @@ Do NOT expose secrets. Names + purpose only.
 | `SMTP_PASSWORD` / `SES_SMTP_PASSWORD` | SMTP auth pass | Required for digests | `...` | Secret |
 | `SMTP_HOST` / `SES_SMTP_HOST` | SMTP host (defaults `smtp.gmail.com`) | Optional | `email-smtp.us-east-1.amazonaws.com` | Public host |
 | `SMTP_PORT` | SMTP port (defaults 465) | Optional | `465` | Public |
-| `SMTP_FROM` / `SES_FROM_EMAIL` | From address | Optional (defaults `Skarm <no-reply@example.com>`) | `Skarm <noreply@example.com>` | Public |
+| `SMTP_FROM` / `SES_FROM_EMAIL` | From address | Optional (defaults `Meherah <no-reply@example.com>`) | `Meherah <noreply@example.com>` | Public |
 
 Drift: `OLD.README.md` documents `OPENAI_API_KEY`; current code uses `NVIDIA_API_KEY`. `.env.local` in this checkout lacks `NEXT_PUBLIC_SITE_URL`, `GITHUB_PRIVATE_KEY`, SES vars.
 
@@ -756,7 +756,7 @@ Track rules: ADD files in owned dirs; never edit `package.json`, `pnpm-lock.yaml
 | NVIDIA NIM (not OpenAI direct) | `nemotron-3-ultra-550b` chat + `nv-embed-v1` 4096 via OpenAI-compat; lazy key read; graceful `AI_NOT_CONFIGURED` fallback |
 | Org-scoped agent tools (9) + `stepCountIs(12)` + 30 msgs | Model never supplies `orgId`; server injects; citations `ENG-42`; bounded cost |
 | Pro rate-limit 50/day, Enterprise unlimited | `rate-limiter` component, `org:user` keys, shared chat+draft allowance; free blocked earlier by `hasAiAccess` |
-| GitHub App (not PAT) + HMAC + bot-echo guard | Per-org install + repo scoping + installation tokens; `sender.type==Bot` skip prevents echo loops; footer `_Synced from Skarm **KEY-n**_` links twins |
+| GitHub App (not PAT) + HMAC + bot-echo guard | Per-org install + repo scoping + installation tokens; `sender.type==Bot` skip prevents echo loops; footer `_Synced from Meherah **KEY-n**_` links twins |
 | Figma OAuth per-org + Dev Mode sync | Token refresh + preview fetch + dev resources keep designs fresh; auto-link regex reduces manual work |
 | SMTP `nodemailer` (not Resend) | Provider-agnostic SES/Gmail; local-hour windows + once-a-day guard via `lastSentDay` |
 | Presence component + capability tokens | Ephemeral viewing state without tables; `roomToken/sessionToken` |
