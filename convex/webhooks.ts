@@ -25,6 +25,7 @@ type ClerkOrgData = {
   name?: string;
   slug?: string | null;
   image_url?: string | null;
+  public_metadata?: { complimentary_plan?: unknown };
 };
 
 type ClerkMembershipData = {
@@ -138,6 +139,10 @@ async function deleteUser(ctx: MutationCtx, data: ClerkUserData) {
 }
 
 async function upsertOrganization(ctx: MutationCtx, data: ClerkOrgData) {
+  // Complimentary access is granted through server-managed Clerk metadata.
+  const grant = data.public_metadata?.complimentary_plan;
+  const complimentaryPlan =
+    grant === "pro" || grant === "enterprise" ? grant : undefined;
   const existing = await ctx.db
     .query("organizations")
     .withIndex("by_clerk_org_id", (q) => q.eq("clerkOrgId", data.id))
@@ -148,6 +153,11 @@ async function upsertOrganization(ctx: MutationCtx, data: ClerkOrgData) {
       name: data.name ?? existing.name,
       slug: data.slug ?? existing.slug,
       imageUrl: data.image_url ?? existing.imageUrl,
+      ...(complimentaryPlan
+        ? { plan: complimentaryPlan, subscriptionStatus: "complimentary" }
+        : existing.subscriptionStatus === "complimentary"
+          ? { plan: "free" as const, subscriptionStatus: undefined }
+          : {}),
     });
   } else {
     await ctx.db.insert("organizations", {
@@ -155,7 +165,8 @@ async function upsertOrganization(ctx: MutationCtx, data: ClerkOrgData) {
       name: data.name ?? "Untitled",
       slug: data.slug ?? undefined,
       imageUrl: data.image_url ?? undefined,
-      plan: "free",
+      plan: complimentaryPlan ?? "free",
+      ...(complimentaryPlan ? { subscriptionStatus: "complimentary" } : {}),
     });
   }
 }
@@ -269,6 +280,8 @@ async function setOrgPlan(
   plan: Doc<"organizations">["plan"],
   subscriptionStatus?: string
 ) {
+  // Subscription events cannot revoke a separate administrator grant.
+  if (org.subscriptionStatus === "complimentary") return;
   await ctx.db.patch(org._id, {
     plan,
     ...(subscriptionStatus === undefined ? {} : { subscriptionStatus }),
