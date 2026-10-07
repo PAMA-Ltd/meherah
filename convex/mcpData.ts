@@ -484,6 +484,21 @@ export const executeRead = internalQuery({
     const input = inputObject(args.input);
 
     switch (args.operation) {
+      case "get_profile": {
+        const org = await ctx.db.get(args.orgId);
+        const user = await ctx.db.get(args.userId);
+        return {
+          workspace: {
+            id: args.orgId,
+            name: org?.name ?? "Workspace",
+            plan: org?.plan ?? "free",
+          },
+          user: user
+            ? { id: user._id, name: user.name, email: user.email }
+            : null,
+        };
+      }
+
       case "list_teams": {
         const teams = await ctx.db
           .query("teams")
