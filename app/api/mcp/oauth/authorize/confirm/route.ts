@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { validateOAuthAuthorization } from "@/lib/mcp-oauth";
+import { SITE_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     const params = new URLSearchParams(await request.text());
-    const origin = new URL(request.url).origin;
+    const origin = new URL(SITE_URL).origin;
     const fields = await validateOAuthAuthorization(origin, params);
     const jwt = await session.getToken({ template: "convex" });
     const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
