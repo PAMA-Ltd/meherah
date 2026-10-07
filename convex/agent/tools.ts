@@ -5,7 +5,7 @@ import { internal } from "../_generated/api";
 import { DataModel, Id } from "../_generated/dataModel";
 import { issueSummaryValidator } from "./data";
 import { embedText } from "./embeddings";
-import { EMBEDDING_MODEL_ID } from "./models";
+import { embeddingScope } from "./models";
 
 /**
  * Org-scoped tools for the Vector agent.
@@ -143,8 +143,7 @@ const findSimilarIssues = createTool({
     const results = await ctx.vectorSearch("issues", "by_embedding", {
       vector: embedding,
       limit: 8,
-      filter: (q) =>
-        q.eq("orgId", ctx.orgId).eq("embeddingModel", EMBEDDING_MODEL_ID),
+      filter: (q) => q.eq("embeddingScope", embeddingScope(ctx.orgId)),
     });
     const summaries: IssueSummary[] = await ctx.runQuery(
       internal.agent.data.issueSummariesByIds,
