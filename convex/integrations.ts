@@ -6,6 +6,7 @@ import {
   QueryCtx,
 } from "./_generated/server";
 import { scheduleGithubIssueSync } from "./github/sync";
+import { listGithubConnections, MAX_GITHUB_CONNECTIONS } from "./github/connections";
 import { logActivity } from "./lib/activity";
 import { orgAdminMutation, orgQuery } from "./lib/customFunctions";
 import { createNotification } from "./notifications";
@@ -23,23 +24,19 @@ import { createNotification } from "./notifications";
  * merged → done.
  */
 
-async function getGithubIntegration(
-  ctx: { db: QueryCtx["db"] },
-  orgId: Id<"organizations">
-): Promise<Doc<"integrations"> | null> {
-  return await ctx.db
-    .query("integrations")
-    .withIndex("by_org_and_type", (q) =>
-      q.eq("orgId", orgId).eq("type", "github")
-    )
-    .unique();
-}
-
 export const get = orgQuery({
   args: {},
   returns: v.object({
     /** Whether GITHUB_APP_SLUG is set on the deployment. */
     appConfigured: v.boolean(),
+    connections: v.array(v.object({
+      installationId: v.number(),
+      accountName: v.string(),
+      enabled: v.boolean(),
+      connectedByName: v.string(),
+      connectedAt: v.number(),
+      repositories: v.array(v.string()),
+    })),
     connection: v.union(
       v.null(),
       v.object({
@@ -51,19 +48,27 @@ export const get = orgQuery({
     ),
   }),
   handler: async (ctx) => {
-    const integration = await getGithubIntegration(ctx, ctx.org._id);
-    const connected = integration?.installationId !== undefined;
-    const connectedBy = connected
-      ? await ctx.db.get(integration!.connectedBy)
-      : null;
+    const integrations = await listGithubConnections(ctx, ctx.org._id);
+    const connections = await Promise.all(integrations.map(async integration => ({
+      installationId: integration.installationId,
+      accountName: integration.repositories?.[0]?.split("/")[0] ?? `Installation ${integration.installationId}`,
+      enabled: integration.enabled,
+      connectedByName: (await ctx.db.get(integration.connectedBy))?.name ?? "Unknown user",
+      connectedAt: integration._creationTime,
+      repositories: integration.repositories ?? [],
+    })));
+    const first = connections.find(connection => connection.enabled) ?? connections[0];
     return {
       appConfigured: !!process.env.GITHUB_APP_SLUG,
-      connection: connected
+      connections,
+      // Preserve the combined connection contract used by repository pickers.
+      connection: first
         ? {
-            enabled: integration!.enabled,
-            connectedByName: connectedBy?.name ?? "Unknown user",
-            connectedAt: integration!._creationTime,
-            repositories: integration!.repositories ?? [],
+            enabled: connections.some(connection => connection.enabled),
+            connectedByName: first.connectedByName,
+            connectedAt: first.connectedAt,
+            repositories: [...new Set(connections.filter(connection => connection.enabled)
+              .flatMap(connection => connection.repositories))].sort(),
           }
         : null,
     };
@@ -92,26 +97,33 @@ export const beginInstall = orgAdminMutation({
 });
 
 export const setEnabled = orgAdminMutation({
-  args: { enabled: v.boolean() },
+  args: { enabled: v.boolean(), installationId: v.optional(v.number()) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const integration = await getGithubIntegration(ctx, ctx.org._id);
-    if (!integration) {
-      throw new Error("GitHub is not connected");
+    const connections = await listGithubConnections(ctx, ctx.org._id);
+    const selected = connections.filter(connection => args.installationId === undefined || connection.installationId === args.installationId);
+    if (selected.length === 0) {
+      throw new Error("GitHub connection not found");
     }
-    await ctx.db.patch(integration._id, { enabled: args.enabled });
+    for (const connection of selected) {
+      await ctx.db.patch(connection._id, { enabled: args.enabled });
+    }
     return null;
   },
 });
 
 /** Remove the binding. Linked PR records on issues are kept. */
 export const disconnect = orgAdminMutation({
-  args: {},
+  args: { installationId: v.optional(v.number()) },
   returns: v.null(),
-  handler: async (ctx) => {
-    const integration = await getGithubIntegration(ctx, ctx.org._id);
-    if (integration) {
-      await ctx.db.delete(integration._id);
+  handler: async (ctx, args) => {
+    const connections = await listGithubConnections(ctx, ctx.org._id);
+    const selected = connections.filter(connection => args.installationId === undefined || connection.installationId === args.installationId);
+    if (args.installationId !== undefined && selected.length === 0) {
+      throw new Error("GitHub connection not found");
+    }
+    for (const connection of selected) {
+      await ctx.db.delete(connection._id);
     }
     return null;
   },
@@ -333,7 +345,19 @@ export const completeSetup = internalMutation({
       return null;
     }
 
-    const existing = await getGithubIntegration(ctx, state.orgId);
+    if (!Number.isSafeInteger(args.installationId) || args.installationId <= 0) {
+      throw new Error("Invalid GitHub installation");
+    }
+    const membership = await ctx.db.query("members")
+      .withIndex("by_org_and_user", q => q.eq("orgId", state.orgId).eq("userId", state.userId))
+      .unique();
+    if (membership?.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+    const existing = await getByInstallation(ctx, args.installationId);
+    if (existing && existing.orgId !== state.orgId) {
+      throw new Error("This GitHub installation is connected to another workspace");
+    }
     if (existing) {
       await ctx.db.patch(existing._id, {
         installationId: args.installationId,
@@ -342,6 +366,9 @@ export const completeSetup = internalMutation({
         webhookSecret: undefined,
       });
     } else {
+      if ((await listGithubConnections(ctx, state.orgId)).length >= MAX_GITHUB_CONNECTIONS) {
+        throw new Error("Too many GitHub account connections");
+      }
       await ctx.db.insert("integrations", {
         orgId: state.orgId,
         type: "github",
@@ -371,7 +398,7 @@ async function getByInstallation(
     .withIndex("by_installation", (q) =>
       q.eq("installationId", installationId)
     )
-    .first();
+    .unique();
 }
 
 /** installation / installation_repositories events: sync the repo list. */
@@ -470,7 +497,7 @@ export const handlePullRequest = internalMutation({
           q.eq("teamId", team._id).eq("number", number)
         )
         .unique();
-      if (!issue) {
+      if (!issue || issue.orgId !== orgId) {
         continue;
       }
 

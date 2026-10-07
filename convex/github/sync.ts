@@ -10,6 +10,7 @@ import { logActivity } from "../lib/activity";
 import { getAuthContext } from "../lib/auth";
 import { orgQuery } from "../lib/customFunctions";
 import { createNotification } from "../notifications";
+import { listGithubConnections, repositoryInstallation } from "./connections";
 
 /**
  * Data half of the GitHub sync layer: everything that reads or writes the
@@ -50,20 +51,23 @@ export const storeRepositories = internalMutation({
 
 /** Resolve the caller's org integration for API-backed actions. */
 export const getAuthedInstallation = internalQuery({
-  args: {},
-  returns: v.object({ installationId: v.number() }),
-  handler: async (ctx) => {
-    const { org } = await getAuthContext(ctx);
-    const integration = await ctx.db
-      .query("integrations")
-      .withIndex("by_org_and_type", (q) =>
-        q.eq("orgId", org._id).eq("type", "github")
-      )
-      .unique();
-    if (!integration?.enabled || integration.installationId === undefined) {
+  args: { installationId: v.optional(v.number()), includeDisabled: v.optional(v.boolean()) },
+  returns: v.object({ installations: v.array(v.object({ installationId: v.number(), repositories: v.array(v.string()) })) }),
+  handler: async (ctx, args) => {
+    const { org, membership } = await getAuthContext(ctx);
+    if (args.includeDisabled && membership.role !== "admin") {
+      throw new Error("Admin access required");
+    }
+    const connections = (await listGithubConnections(ctx, org._id)).filter(connection =>
+      (connection.enabled || args.includeDisabled) &&
+      (args.installationId === undefined || connection.installationId === args.installationId)
+    );
+    if (connections.length === 0) {
       throw new Error("GitHub is not connected for this workspace");
     }
-    return { installationId: integration.installationId };
+    return { installations: connections.map(connection => ({
+      installationId: connection.installationId, repositories: connection.repositories ?? [],
+    })) };
   },
 });
 
@@ -73,7 +77,7 @@ export const getIssueForSync = internalQuery({
   returns: v.union(
     v.null(),
     v.object({
-      installationId: v.number(),
+      installations: v.array(v.object({ installationId: v.number(), repositories: v.array(v.string()) })),
       orgId: v.id("organizations"),
       title: v.string(),
       description: v.optional(v.string()),
@@ -81,7 +85,7 @@ export const getIssueForSync = internalQuery({
       /** Display identifier, e.g. ENG-42. */
       identifier: v.string(),
       /** Linked GitHub issues to keep in sync. */
-      links: v.array(v.object({ repo: v.string(), number: v.number() })),
+      links: v.array(v.object({ repo: v.string(), number: v.number(), installationId: v.number() })),
     })
   ),
   handler: async (ctx, args) => {
@@ -89,28 +93,33 @@ export const getIssueForSync = internalQuery({
     if (!issue) {
       return null;
     }
-    const integration = await ctx.db
-      .query("integrations")
-      .withIndex("by_org_and_type", (q) =>
-        q.eq("orgId", issue.orgId).eq("type", "github")
-      )
-      .unique();
-    if (!integration?.enabled || integration.installationId === undefined) {
+    const installations = (await listGithubConnections(ctx, issue.orgId))
+      .filter(connection => connection.enabled)
+      .map(connection => ({ installationId: connection.installationId, repositories: connection.repositories ?? [] }));
+    if (installations.length === 0) {
       return null;
     }
     const team = await ctx.db.get(issue.teamId);
+    if (!team || team.orgId !== issue.orgId) {
+      return null;
+    }
     const links = await ctx.db
       .query("githubIssues")
       .withIndex("by_issue", (q) => q.eq("issueId", args.issueId))
       .collect();
     return {
-      installationId: integration.installationId,
+      installations,
       orgId: issue.orgId,
       title: issue.title,
       description: issue.description,
       status: issue.status,
       identifier: `${team?.key ?? "?"}-${issue.number}`,
-      links: links.map((link) => ({ repo: link.repo, number: link.number })),
+      links: links.flatMap(link => {
+        const installation = repositoryInstallation(installations, link.repo);
+        return link.orgId === issue.orgId && installation
+          ? [{ repo: link.repo, number: link.number, installationId: installation.installationId }]
+          : [];
+      }),
     };
   },
 });
@@ -315,7 +324,7 @@ export const applyGithubIssueEvent = internalMutation({
       return null; // not a synced issue
     }
     const issue = await ctx.db.get(link.issueId);
-    if (!issue) {
+    if (!issue || issue.orgId !== integration.orgId) {
       return null;
     }
     const orgId = integration.orgId;

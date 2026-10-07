@@ -2,7 +2,7 @@
 
 import { useOrganization } from "@clerk/nextjs";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Loader2, Lock, RefreshCcw } from "lucide-react";
+import { Loader2, Lock, Plus, RefreshCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -28,10 +28,12 @@ function RepositoryList({
   repositories,
   onRefresh,
   refreshing,
+  canRefresh,
 }: {
   repositories: string[];
   onRefresh: () => void;
   refreshing: boolean;
+  canRefresh: boolean;
 }) {
   const [filter, setFilter] = useState("");
   const visible = filter
@@ -50,7 +52,7 @@ function RepositoryList({
               {repositories.length}
             </span>
           )}
-          <button
+          {canRefresh && <button
             type="button"
             onClick={onRefresh}
             disabled={refreshing}
@@ -61,7 +63,7 @@ function RepositoryList({
             <RefreshCcw
               className={`size-3 ${refreshing ? "animate-spin" : ""}`}
             />
-          </button>
+          </button>}
         </span>
         {repositories.length > 8 && (
           <input
@@ -123,36 +125,35 @@ export function IntegrationsManager() {
   const disconnect = useMutation(api.integrations.disconnect);
   const refreshRepositories = useAction(api.github.client.refreshRepositories);
   const [connecting, setConnecting] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const healedRef = useRef(false);
+  const [refreshing, setRefreshing] = useState<number[]>([]);
+  const healedRef = useRef(new Set<number>());
 
   const onError = (error: unknown) => {
     setConnecting(false);
     toast.error(error instanceof Error ? error.message : "Something went wrong");
   };
 
-  const connection = data?.connection ?? null;
-  const repoCount = connection?.repositories.length ?? 0;
+  const connections = data?.connections;
 
-  const doRefresh = () => {
-    setRefreshing(true);
-    refreshRepositories()
-      .catch(() => toast.error("Failed to refresh repositories"))
-      .finally(() => setRefreshing(false));
+  const doRefresh = (installationId: number) => {
+    setRefreshing(current => [...current, installationId]);
+    refreshRepositories({ installationId })
+      .catch(onError)
+      .finally(() => setRefreshing(current => current.filter(id => id !== installationId)));
   };
 
   // Self-heal a connected install whose repo list never arrived (the
   // installation webhook races the binding on connect and can be dropped):
   // pull it from the API once.
   useEffect(() => {
-    if (connection && repoCount === 0 && !healedRef.current) {
-      healedRef.current = true;
-      setRefreshing(true);
-      refreshRepositories()
-        .catch(() => {})
-        .finally(() => setRefreshing(false));
+    if (!isAdmin) return;
+    for (const connection of connections ?? []) {
+      if (connection.repositories.length || healedRef.current.has(connection.installationId)) continue;
+      healedRef.current.add(connection.installationId);
+      void refreshRepositories({ installationId: connection.installationId })
+        .catch(error => toast.error(error instanceof Error ? error.message : "Failed to refresh repositories"));
     }
-  }, [connection, repoCount, refreshRepositories]);
+  }, [connections, isAdmin, refreshRepositories]);
 
   const connect = async () => {
     setConnecting(true);
@@ -188,14 +189,14 @@ export function IntegrationsManager() {
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium">GitHub</div>
             <p className="truncate text-xs text-muted-foreground">
-              {connection
-                ? `Connected by ${connection.connectedByName} · ${formatRelativeTime(connection.connectedAt)}`
+              {connections?.length
+                ? `${connections.length} connected ${connections.length === 1 ? "account" : "accounts"}`
                 : "Link pull requests to issues and update statuses on merge."}
             </p>
           </div>
           {data === undefined ? (
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          ) : connection === null ? (
+          ) : !connections?.length ? (
             <Button
               size="sm"
               disabled={!isAdmin || !data.appConfigured || connecting}
@@ -204,19 +205,10 @@ export function IntegrationsManager() {
               {connecting && <Loader2 className="size-3.5 animate-spin" />}
               Connect
             </Button>
-          ) : (
-            <Switch
-              checked={connection.enabled}
-              disabled={!isAdmin}
-              onCheckedChange={(enabled) =>
-                setEnabled({ enabled }).catch(onError)
-              }
-              aria-label="Enable GitHub integration"
-            />
-          )}
+          ) : null}
         </div>
 
-        {data !== undefined && connection === null && !data.appConfigured && (
+        {data !== undefined && !connections?.length && !data.appConfigured && (
           <>
             <Separator />
             <p className="p-4 text-xs text-muted-foreground">
@@ -243,55 +235,89 @@ export function IntegrationsManager() {
           </>
         )}
 
-        {connection && (
+        {!!connections?.length && (
           <>
             <Separator />
             <div className="flex flex-col gap-3 p-4">
-              <RepositoryList
-                repositories={connection.repositories}
-                onRefresh={doRefresh}
-                refreshing={refreshing}
-              />
+              <h3 className="text-sm font-medium">Connected accounts</h3>
+              <div className="divide-y rounded-lg border">
+                {connections.map(connection => (
+                <div key={connection.installationId} className="flex flex-col gap-3 p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                      <GithubIcon className="size-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{connection.accountName}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        Connected by {connection.connectedByName} · {formatRelativeTime(connection.connectedAt)}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={connection.enabled}
+                      disabled={!isAdmin}
+                      onCheckedChange={enabled => void setEnabled({ enabled, installationId: connection.installationId }).catch(onError)}
+                      aria-label={`Enable ${connection.accountName} GitHub connection`}
+                    />
+                  </div>
+                  <RepositoryList
+                    repositories={connection.repositories}
+                    onRefresh={() => doRefresh(connection.installationId)}
+                    refreshing={refreshing.includes(connection.installationId)}
+                    canRefresh={isAdmin}
+                  />
+                  {isAdmin && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-fit text-destructive hover:text-destructive"
+                        >
+                          Disconnect
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Disconnect {connection.accountName}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Events from this account stop being processed for this workspace.
+                            Already-linked pull requests stay on their issues. To
+                            revoke repository access entirely, also uninstall the
+                            app from GitHub.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => disconnect({ installationId: connection.installationId }).catch(onError)}
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                          >
+                            Disconnect
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
+                ))}
+                {isAdmin && <Button
+                  variant="ghost"
+                  className="h-11 w-full justify-start gap-3 rounded-t-none px-3 text-sm"
+                  disabled={!data?.appConfigured || connecting}
+                  onClick={() => void connect()}
+                >
+                  {connecting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                  Connect another account
+                </Button>}
+              </div>
               <p className="text-xs text-muted-foreground">
-                Reference issues as{" "}
+                Connect personal accounts and organizations. Reference issues as{" "}
                 <code className="rounded bg-muted px-1">ENG-42</code> in a
                 branch name, PR title or body. Opened PRs move issues to In
                 Review; merged PRs move them to Done. Manage repository access
                 from your GitHub App installation settings.
               </p>
-              {isAdmin && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-fit text-destructive hover:text-destructive"
-                    >
-                      Disconnect
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Disconnect GitHub?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Events stop being processed for this workspace.
-                        Already-linked pull requests stay on their issues. To
-                        revoke repository access entirely, also uninstall the
-                        app from GitHub.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => disconnect().catch(onError)}
-                        className="bg-destructive text-white hover:bg-destructive/90"
-                      >
-                        Disconnect
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
             </div>
           </>
         )}
