@@ -5,7 +5,7 @@ import { orgMutation, orgQuery } from "./lib/customFunctions";
 import { embedText } from "./agent/embeddings";
 import {
   AI_NOT_CONFIGURED_MESSAGE,
-  EMBEDDING_MODEL_ID,
+  embeddingScope,
   isAiConfigured,
 } from "./agent/models";
 
@@ -459,8 +459,7 @@ export const execute = action({
       const results = await ctx.vectorSearch("issues", "by_embedding", {
         vector: embedding,
         limit: Math.max(limit, 8),
-        filter: (q) =>
-          q.eq("orgId", auth.orgId).eq("embeddingModel", EMBEDDING_MODEL_ID),
+        filter: (q) => q.eq("embeddingScope", embeddingScope(auth.orgId)),
       });
       const summaries = await ctx.runQuery(
         internal.agent.data.issueSummariesByIds,
