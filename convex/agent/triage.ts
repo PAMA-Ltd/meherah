@@ -9,6 +9,7 @@ import { issueSummaryValidator } from "./data";
 import { embedText } from "./embeddings";
 import {
   AI_NOT_CONFIGURED_MESSAGE,
+  EMBEDDING_MODEL_ID,
   chatModel,
   isAiConfigured,
 } from "./models";
@@ -84,7 +85,8 @@ export const findDuplicates = action({
       const results = await ctx.vectorSearch("issues", "by_embedding", {
         vector: embedding,
         limit: 8,
-        filter: (q) => q.eq("orgId", auth.orgId),
+        filter: (q) =>
+          q.eq("orgId", auth.orgId).eq("embeddingModel", EMBEDDING_MODEL_ID),
       });
       const candidates = results.filter(
         (result) => result._id !== args.issueId && result._score >= 0.4
