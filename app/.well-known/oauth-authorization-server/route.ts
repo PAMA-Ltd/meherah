@@ -5,7 +5,7 @@ export function GET(request: Request) {
   return Response.json(
     {
       issuer: origin,
-      authorization_endpoint: origin + "/api/mcp/oauth/authorize",
+      authorization_endpoint: origin + "/mcp/authorize",
       token_endpoint: origin + "/api/mcp/oauth/token",
       registration_endpoint: origin + "/api/mcp/oauth/register",
       scopes_supported: ["mcp:read", "mcp:write"],
