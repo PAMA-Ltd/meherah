@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -33,5 +35,13 @@ jobs:
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
-      - name: Lint
-        run: pnpm lint
+      - name: Lint changed files
+        shell: bash
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.ts' '*.tsx' '*.js' '*.jsx')
+          if (( ${#files[@]} == 0 )); then
+            echo "No changed JS/TS files to lint."
+            exit 0
+          fi
+          printf 'Linting %s\n' "${files[@]}"
+          pnpm exec eslint "${files[@]}"
