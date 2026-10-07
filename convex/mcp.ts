@@ -143,6 +143,17 @@ export const revokeCredential = orgMutation({
   },
 });
 
+export const verifyCredential = action({
+  args: { tokenHash: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const auth = await ctx.runQuery(internal.mcpData.authenticateToken, {
+      tokenHash: args.tokenHash,
+    });
+    return auth !== null;
+  },
+});
+
 export const execute = action({
   args: {
     tokenHash: v.string(),
