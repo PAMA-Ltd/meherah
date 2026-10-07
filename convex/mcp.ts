@@ -220,7 +220,10 @@ export const exchangeOAuthCode = action({
     scopes: v.array(v.string()),
     expiresIn: v.number(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ scopes: string[]; expiresIn: number }> => {
     if (args.codeVerifier.length < 43 || args.codeVerifier.length > 128) {
       throw new ConvexError("Invalid PKCE verifier");
     }
@@ -249,7 +252,10 @@ export const refreshOAuthCredential = action({
     scopes: v.array(v.string()),
     expiresIn: v.number(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ scopes: string[]; expiresIn: number }> => {
     return await ctx.runMutation(internal.mcpData.refreshOAuthCredential, args);
   },
 });
@@ -347,7 +353,7 @@ export const revokeCredential = orgMutation({
 export const verifyCredential = action({
   args: { tokenHash: v.string() },
   returns: v.boolean(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<boolean> => {
     const auth = await ctx.runQuery(internal.mcpData.authenticateToken, {
       tokenHash: args.tokenHash,
     });
@@ -362,7 +368,7 @@ export const execute = action({
     input: v.any(),
   },
   returns: v.any(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<unknown> => {
     const auth = await ctx.runQuery(internal.mcpData.authenticateToken, {
       tokenHash: args.tokenHash,
     });
