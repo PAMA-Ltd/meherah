@@ -11,6 +11,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/mcp",
   "/api/mcp/oauth/register",
   "/api/mcp/oauth/token",
+  "/api/mcp/oauth/revoke",
   "/.well-known/oauth-protected-resource",
   "/.well-known/oauth-authorization-server",
 ]);
