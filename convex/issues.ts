@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { MutationCtx, QueryCtx } from "./_generated/server";
 import { scheduleGithubIssueSync } from "./github/sync";
+import { enabledRepositories, listGithubConnections, repositoryInstallation } from "./github/connections";
 import { logActivity } from "./lib/activity";
 import { orgMutation, orgQuery } from "./lib/customFunctions";
 import {
@@ -343,14 +344,11 @@ export const create = orgMutation({
           "That repository isn't connected to the selected project"
         );
       }
-      const integration = await ctx.db
-        .query("integrations")
-        .withIndex("by_org_and_type", (q) =>
-          q.eq("orgId", ctx.org._id).eq("type", "github")
-        )
-        .unique();
-      if (!integration?.enabled || integration.installationId === undefined) {
-        throw new Error("GitHub is not connected for this workspace");
+      const installations = (await listGithubConnections(ctx, ctx.org._id))
+        .filter(connection => connection.enabled)
+        .map(connection => ({ installationId: connection.installationId, repositories: enabledRepositories(connection) }));
+      if (!repositoryInstallation(installations, args.githubRepo)) {
+        throw new Error("Repository sync is disabled or the repository is not available in this workspace");
       }
     }
 

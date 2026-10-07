@@ -6,7 +6,7 @@ import {
   QueryCtx,
 } from "./_generated/server";
 import { scheduleGithubIssueSync } from "./github/sync";
-import { listGithubConnections, MAX_GITHUB_CONNECTIONS } from "./github/connections";
+import { disabledRepositories, enabledRepositories, isRepositoryEnabled, listGithubConnections, MAX_GITHUB_CONNECTIONS, refreshedDisabledRepositories } from "./github/connections";
 import { logActivity } from "./lib/activity";
 import { orgAdminMutation, orgQuery } from "./lib/customFunctions";
 import { createNotification } from "./notifications";
@@ -36,6 +36,7 @@ export const get = orgQuery({
       connectedByName: v.string(),
       connectedAt: v.number(),
       repositories: v.array(v.string()),
+      disabledRepositories: v.array(v.string()),
     })),
     connection: v.union(
       v.null(),
@@ -56,6 +57,7 @@ export const get = orgQuery({
       connectedByName: (await ctx.db.get(integration.connectedBy))?.name ?? "Unknown user",
       connectedAt: integration._creationTime,
       repositories: integration.repositories ?? [],
+      disabledRepositories: disabledRepositories(integration),
     })));
     const first = connections.find(connection => connection.enabled) ?? connections[0];
     return {
@@ -68,7 +70,7 @@ export const get = orgQuery({
             connectedByName: first.connectedByName,
             connectedAt: first.connectedAt,
             repositories: [...new Set(connections.filter(connection => connection.enabled)
-              .flatMap(connection => connection.repositories))].sort(),
+              .flatMap(connection => enabledRepositories(connection)))].sort(),
           }
         : null,
     };
@@ -108,6 +110,27 @@ export const setEnabled = orgAdminMutation({
     for (const connection of selected) {
       await ctx.db.patch(connection._id, { enabled: args.enabled });
     }
+    return null;
+  },
+});
+
+/** Pause a repository's sync while preserving GitHub's installation grant. */
+export const setRepositoryEnabled = orgAdminMutation({
+  args: { installationId: v.number(), repo: v.string(), enabled: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const connection = (await listGithubConnections(ctx, ctx.org._id))
+      .find(row => row.installationId === args.installationId);
+    if (!connection) throw new Error("GitHub connection not found");
+    const repo = args.repo.toLowerCase();
+    if (!(connection.repositories ?? []).some(name => name.toLowerCase() === repo)) {
+      throw new Error("Repository not found in this GitHub connection");
+    }
+    const disabled = new Set(disabledRepositories(connection));
+    if (args.enabled) disabled.delete(repo);
+    else disabled.add(repo);
+    if (disabled.size > 8192) throw new Error("Too many disabled repositories");
+    await ctx.db.patch(connection._id, { disabledRepositories: [...disabled].sort() });
     return null;
   },
 });
@@ -435,6 +458,7 @@ export const handleInstallationEvent = internalMutation({
     }
     await ctx.db.patch(integration._id, {
       repositories: [...repos].sort(),
+      disabledRepositories: refreshedDisabledRepositories(integration, [...repos]),
     });
     return null;
   },
@@ -461,7 +485,7 @@ export const handlePullRequest = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const integration = await getByInstallation(ctx, args.installationId);
-    if (!integration || !integration.enabled) {
+    if (!integration || !integration.enabled || !isRepositoryEnabled(integration, args.repo)) {
       return null;
     }
     const orgId = integration.orgId;

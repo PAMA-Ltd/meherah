@@ -21,6 +21,37 @@ export async function listGithubConnections(
 
 export type GithubInstallation = { installationId: number; repositories: string[] };
 
+type RepositoryPreferences = { repositories?: string[]; disabledRepositories?: string[] };
+
+// Older connections have no preferences: opt every repository out by default.
+export function disabledRepositories(connection: RepositoryPreferences) {
+  return (connection.disabledRepositories ?? connection.repositories ?? []).map(repo => repo.toLowerCase());
+}
+
+// Newly granted repositories must be opted in, even after a metadata refresh.
+export function refreshedDisabledRepositories(connection: RepositoryPreferences, repositories: string[]) {
+  const disabled = new Set(disabledRepositories(connection));
+  const known = new Set((connection.repositories ?? []).map(repo => repo.toLowerCase()));
+  for (const repo of repositories) {
+    if (!known.has(repo.toLowerCase())) disabled.add(repo.toLowerCase());
+  }
+  if (disabled.size > 8192) throw new Error("Too many disabled repositories");
+  return [...disabled].sort();
+}
+
+export function isRepositoryEnabled(
+  connection: RepositoryPreferences,
+  repo: string,
+) {
+  return (connection.repositories ?? []).some(name => name.toLowerCase() === repo.toLowerCase())
+    && !disabledRepositories(connection).includes(repo.toLowerCase());
+}
+
+export function enabledRepositories(connection: RepositoryPreferences) {
+  const disabled = new Set(disabledRepositories(connection));
+  return (connection.repositories ?? []).filter(repo => !disabled.has(repo.toLowerCase()));
+}
+
 export function repositoryInstallation(installations: GithubInstallation[], repo: string) {
   return installations.find(installation =>
     installation.repositories.some(repository => repository.toLowerCase() === repo.toLowerCase())

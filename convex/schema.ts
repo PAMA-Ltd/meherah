@@ -208,6 +208,8 @@ export default defineSchema({
     installationId: v.optional(v.number()),
     /** Repos the installation grants ("owner/name"), synced from webhooks */
     repositories: v.optional(v.array(v.string())),
+    /** Lowercase repository names paused in this workspace (max 8192). */
+    disabledRepositories: v.optional(v.array(v.string())),
     /** Legacy manual-webhook secret; superseded by the app-level secret */
     webhookSecret: v.optional(v.string()),
     /** Figma OAuth tokens (never returned to clients) */

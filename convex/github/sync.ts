@@ -10,7 +10,7 @@ import { logActivity } from "../lib/activity";
 import { getAuthContext } from "../lib/auth";
 import { orgQuery } from "../lib/customFunctions";
 import { createNotification } from "../notifications";
-import { listGithubConnections, repositoryInstallation } from "./connections";
+import { disabledRepositories, enabledRepositories, isRepositoryEnabled, listGithubConnections, refreshedDisabledRepositories, repositoryInstallation } from "./connections";
 
 /**
  * Data half of the GitHub sync layer: everything that reads or writes the
@@ -43,6 +43,7 @@ export const storeRepositories = internalMutation({
     if (integration) {
       await ctx.db.patch(integration._id, {
         repositories: args.repositories,
+        disabledRepositories: refreshedDisabledRepositories(integration, args.repositories),
       });
     }
     return null;
@@ -52,7 +53,7 @@ export const storeRepositories = internalMutation({
 /** Resolve the caller's org integration for API-backed actions. */
 export const getAuthedInstallation = internalQuery({
   args: { installationId: v.optional(v.number()), includeDisabled: v.optional(v.boolean()) },
-  returns: v.object({ installations: v.array(v.object({ installationId: v.number(), repositories: v.array(v.string()) })) }),
+  returns: v.object({ installations: v.array(v.object({ installationId: v.number(), repositories: v.array(v.string()), disabledRepositories: v.array(v.string()) })) }),
   handler: async (ctx, args) => {
     const { org, membership } = await getAuthContext(ctx);
     if (args.includeDisabled && membership.role !== "admin") {
@@ -66,7 +67,9 @@ export const getAuthedInstallation = internalQuery({
       throw new Error("GitHub is not connected for this workspace");
     }
     return { installations: connections.map(connection => ({
-      installationId: connection.installationId, repositories: connection.repositories ?? [],
+      installationId: connection.installationId,
+      repositories: args.includeDisabled ? connection.repositories ?? [] : enabledRepositories(connection),
+      disabledRepositories: disabledRepositories(connection),
     })) };
   },
 });
@@ -95,7 +98,7 @@ export const getIssueForSync = internalQuery({
     }
     const installations = (await listGithubConnections(ctx, issue.orgId))
       .filter(connection => connection.enabled)
-      .map(connection => ({ installationId: connection.installationId, repositories: connection.repositories ?? [] }));
+      .map(connection => ({ installationId: connection.installationId, repositories: enabledRepositories(connection) }));
     if (installations.length === 0) {
       return null;
     }
@@ -308,7 +311,7 @@ export const applyGithubIssueEvent = internalMutation({
         q.eq("installationId", args.installationId)
       )
       .first();
-    if (!integration || !integration.enabled) {
+    if (!integration || !integration.enabled || !isRepositoryEnabled(integration, args.repo)) {
       return null;
     }
     const link = await ctx.db

@@ -106,6 +106,7 @@ export function CreateIssueDialog({
   const teams = useQuery(api.teams.list, open ? {} : "skip");
   const templates = useQuery(api.issueTemplates.list, open ? {} : "skip");
   const projects = useQuery(api.projects.list, open ? {} : "skip");
+  const githubIntegration = useQuery(api.integrations.get, open ? {} : "skip");
   const orgLabels = useQuery(api.labels.list, open ? {} : "skip");
   const createIssue = useMutation(api.issues.create);
   const draftIssue = useAction(api.agent.draft.draftIssue);
@@ -166,10 +167,11 @@ export function CreateIssueDialog({
   const teamTemplates = templates?.filter((t) => t.teamId === teamId) ?? [];
 
   const selectedProject = projects?.find((p) => p._id === projectId);
-  const projectRepos = selectedProject?.githubRepos ?? [];
+  const enabledRepos = new Set((githubIntegration?.connection?.repositories ?? []).map(repo => repo.toLowerCase()));
+  const projectRepos = (selectedProject?.githubRepos ?? []).filter(repo => enabledRepos.has(repo.toLowerCase()));
   // The repo actually submitted: explicit choice, or the only repo connected.
   const syncRepo = syncToGithub
-    ? (githubRepo ?? (projectRepos.length === 1 ? projectRepos[0] : null))
+    ? (githubRepo && projectRepos.includes(githubRepo) ? githubRepo : (projectRepos.length === 1 ? projectRepos[0] : null))
     : null;
 
   const applyTemplate = (id: Id<"issueTemplates">) => {

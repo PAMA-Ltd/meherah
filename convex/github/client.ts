@@ -133,7 +133,11 @@ export const listRepositories = action({
       internal.github.sync.getAuthedInstallation,
       {}
     );
-    const batches = await Promise.all(installations.map(installation => fetchInstallationRepos(installation.installationId)));
+    const batches = await Promise.all(installations.map(async installation => {
+      const enabled = new Set(installation.repositories.map(repo => repo.toLowerCase()));
+      return (await fetchInstallationRepos(installation.installationId))
+        .filter(repo => enabled.has(repo.full_name.toLowerCase()));
+    }));
     const repositories = new Map(batches.flat().map(repo => [repo.full_name.toLowerCase(), repo]));
     return [...repositories.values()].map((repo) => ({
       fullName: repo.full_name,

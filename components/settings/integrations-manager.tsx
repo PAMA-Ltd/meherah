@@ -29,13 +29,22 @@ function RepositoryList({
   onRefresh,
   refreshing,
   canRefresh,
+  disabledRepositories,
+  accountEnabled,
+  onToggle,
+  savingRepositories,
 }: {
   repositories: string[];
   onRefresh: () => void;
   refreshing: boolean;
   canRefresh: boolean;
+  disabledRepositories: string[];
+  accountEnabled: boolean;
+  onToggle: (repo: string, enabled: boolean) => void;
+  savingRepositories: string[];
 }) {
   const [filter, setFilter] = useState("");
+  const disabled = new Set(disabledRepositories.map(repo => repo.toLowerCase()));
   const visible = filter
     ? repositories.filter((repo) =>
         repo.toLowerCase().includes(filter.toLowerCase())
@@ -49,7 +58,7 @@ function RepositoryList({
           Repositories
           {repositories.length > 0 && (
             <span className="rounded-full bg-muted px-1.5 py-0.5 font-normal tabular-nums">
-              {repositories.length}
+              {repositories.filter(repo => !disabled.has(repo.toLowerCase())).length}/{repositories.length} enabled
             </span>
           )}
           {canRefresh && <button
@@ -76,6 +85,11 @@ function RepositoryList({
           />
         )}
       </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {accountEnabled
+          ? "Repositories start off. Turn on the ones you want to sync issues and pull requests."
+          : "This account is paused. Repository choices apply when you turn it back on."}
+      </p>
       {repositories.length === 0 ? (
         <p className="mt-1 text-xs text-muted-foreground">
           {refreshing
@@ -91,6 +105,7 @@ function RepositoryList({
           <div className="mt-2 grid max-h-48 grid-cols-1 gap-x-3 gap-y-0.5 overflow-y-auto pb-6 sm:grid-cols-2">
             {visible.map((repo) => {
               const [owner, name] = repo.split("/");
+              const enabled = !disabled.has(repo.toLowerCase());
               return (
                 <div
                   key={repo}
@@ -98,10 +113,17 @@ function RepositoryList({
                   title={repo}
                 >
                   <GithubIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">
+                  <span className={`min-w-0 flex-1 truncate ${!enabled || !accountEnabled ? "opacity-50" : ""}`}>
                     <span className="text-muted-foreground">{owner}/</span>
                     <span className="font-medium">{name}</span>
                   </span>
+                  <Switch
+                    checked={enabled}
+                    disabled={!canRefresh || savingRepositories.includes(repo)}
+                    onCheckedChange={checked => onToggle(repo, checked)}
+                    aria-label={`Enable sync for ${repo}`}
+                    className="shrink-0"
+                  />
                 </div>
               );
             })}
@@ -122,10 +144,12 @@ export function IntegrationsManager() {
   const data = useQuery(api.integrations.get);
   const beginInstall = useMutation(api.integrations.beginInstall);
   const setEnabled = useMutation(api.integrations.setEnabled);
+  const setRepositoryEnabled = useMutation(api.integrations.setRepositoryEnabled);
   const disconnect = useMutation(api.integrations.disconnect);
   const refreshRepositories = useAction(api.github.client.refreshRepositories);
   const [connecting, setConnecting] = useState(false);
   const [refreshing, setRefreshing] = useState<number[]>([]);
+  const [savingRepositories, setSavingRepositories] = useState<string[]>([]);
   const healedRef = useRef(new Set<number>());
 
   const onError = (error: unknown) => {
@@ -134,6 +158,18 @@ export function IntegrationsManager() {
   };
 
   const connections = data?.connections;
+
+  const toggleRepository = async (installationId: number, repo: string, enabled: boolean) => {
+    const key = `${installationId}:${repo}`;
+    setSavingRepositories(current => [...current, key]);
+    try {
+      await setRepositoryEnabled({ installationId, repo, enabled });
+    } catch (error) {
+      onError(error);
+    } finally {
+      setSavingRepositories(current => current.filter(item => item !== key));
+    }
+  };
 
   const doRefresh = (installationId: number) => {
     setRefreshing(current => [...current, installationId]);
@@ -265,6 +301,10 @@ export function IntegrationsManager() {
                     onRefresh={() => doRefresh(connection.installationId)}
                     refreshing={refreshing.includes(connection.installationId)}
                     canRefresh={isAdmin}
+                    disabledRepositories={connection.disabledRepositories}
+                    accountEnabled={connection.enabled}
+                    onToggle={(repo, enabled) => void toggleRepository(connection.installationId, repo, enabled)}
+                    savingRepositories={connection.repositories.filter(repo => savingRepositories.includes(`${connection.installationId}:${repo}`))}
                   />
                   {isAdmin && (
                     <AlertDialog>

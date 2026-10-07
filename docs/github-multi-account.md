@@ -7,8 +7,17 @@ Repository pickers combine the enabled accounts. Issue and attachment sync use
 the installation that grants the target repository, rather than the first
 connected account.
 
-Existing single-account records remain valid. No schema migration or new
-GitHub environment variables are required. An installation can belong to only
+Each repository also has an independent sync toggle. Turning it off excludes
+it from repository pickers and pauses inbound issue/PR events and outbound
+issue/attachment updates. Existing links stay on their issues. Repository
+refreshes and account pauses preserve these choices. All repositories start
+off, including newly granted repositories; turn on only those you want to sync.
+Only workspace admins can change either account or repository toggles.
+These preferences pause Meherah sync; repository permissions are managed on GitHub.
+
+Existing records remain valid; a missing `disabledRepositories` field means all
+repositories are off until the admin opts in. No backfill is needed.
+No new GitHub environment variables are required. An installation can belong to only
 one Meherah workspace; a different workspace cannot claim it.
 
 After deployment, connect each additional account using **Connect another account**
