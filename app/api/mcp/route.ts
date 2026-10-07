@@ -17,6 +17,37 @@ const MODERN_VERSION = "2026-07-28";
 const LEGACY_VERSION = "2025-11-25";
 const SERVER_INFO = { name: "Meherah", version: "1.0.0" };
 
+const READ_ONLY_TOOLS = new Set([
+  "get_profile",
+  "workspace_summary",
+  "list_teams",
+  "list_members",
+  "list_issues",
+  "search_issues",
+  "semantic_search_issues",
+  "get_issue",
+  "list_comments",
+  "list_labels",
+  "list_projects",
+  "get_project",
+  "project_summary",
+  "project_status_report",
+  "list_cycles",
+  "get_cycle",
+  "cycle_summary",
+  "cycle_summary_for_team",
+  "list_issue_relations",
+  "standup_report",
+]);
+
+const DESTRUCTIVE_TOOLS = new Set([
+  "delete_issue",
+  "delete_comment",
+  "delete_project",
+  "delete_cycle",
+  "delete_issue_relation",
+]);
+
 function objectSchema(
   properties: Record<string, unknown> = {},
   required: string[] = []
@@ -35,7 +66,16 @@ function tool(
   properties: Record<string, unknown> = {},
   required: string[] = []
 ) {
-  return { name, description, inputSchema: objectSchema(properties, required) };
+  return {
+    name,
+    description,
+    inputSchema: objectSchema(properties, required),
+    annotations: {
+      readOnlyHint: READ_ONLY_TOOLS.has(name),
+      destructiveHint: DESTRUCTIVE_TOOLS.has(name),
+      openWorldHint: false,
+    },
+  };
 }
 
 const issueIdentifier = {
@@ -54,6 +94,13 @@ const nullableString = { type: ["string", "null"] };
 const nullableNumber = { type: ["number", "null"] };
 
 const TOOLS = [
+  {
+    ...tool(
+      "get_profile",
+      "Return the authenticated Meherah user and workspace for this connection."
+    ),
+    _meta: { "openai/profile": true },
+  },
   tool("workspace_summary", "Summarize this workspace: plan, member/team/project/cycle totals, issue status counts, priorities, and overdue work."),
   tool("list_teams", "List teams in this workspace with their keys and issue counts."),
   tool(
