@@ -55,7 +55,7 @@ const WRITE_OPERATIONS = new Set([
   "set_issue_parent",
 ]);
 
-const MCP_SCOPES = new Set(["mcp:read", "mcp:write"]);
+const MCP_SCOPES = new Set(["mcp:read", "mcp:write", "offline_access"]);
 
 function validChatGptRedirect(uri: string): boolean {
   try {
@@ -257,6 +257,30 @@ export const refreshOAuthCredential = action({
     args
   ): Promise<{ scopes: string[]; expiresIn: number }> => {
     return await ctx.runMutation(internal.mcpData.refreshOAuthCredential, args);
+  },
+});
+
+export const revokeOAuthToken = mutation({
+  args: { tokenHash: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    let credential = await ctx.db
+      .query("mcpCredentials")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
+      .unique();
+    if (!credential) {
+      credential = await ctx.db
+        .query("mcpCredentials")
+        .withIndex("by_refresh_token_hash", (q) =>
+          q.eq("refreshTokenHash", args.tokenHash)
+        )
+        .unique();
+    }
+    if (!credential) return false;
+    if (credential.revokedAt === undefined) {
+      await ctx.db.patch(credential._id, { revokedAt: Date.now() });
+    }
+    return true;
   },
 });
 
