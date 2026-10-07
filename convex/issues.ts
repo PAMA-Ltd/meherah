@@ -575,6 +575,16 @@ export const update = orgMutation({
     if (updates.title !== undefined || updates.status !== undefined) {
       await scheduleFigmaDevSync(ctx, issue._id);
     }
+    // Keep an already-indexed issue semantically fresh after content edits.
+    // Missing embeddings are still filled lazily by ensureOrgEmbeddings.
+    if (
+      issue.embedding !== undefined &&
+      (args.title !== undefined || args.description !== undefined)
+    ) {
+      await ctx.scheduler.runAfter(0, internal.agent.embeddings.embedIssue, {
+        issueId: issue._id,
+      });
+    }
     return null;
   },
 });
