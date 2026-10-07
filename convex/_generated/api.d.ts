@@ -32,6 +32,8 @@ import type * as github_sync from "../github/sync.js";
 import type * as graph from "../graph.js";
 import type * as http from "../http.js";
 import type * as integrations from "../integrations.js";
+import type * as mcp from "../mcp.js";
+import type * as mcpData from "../mcpData.js";
 import type * as issueRelations from "../issueRelations.js";
 import type * as issueTemplates from "../issueTemplates.js";
 import type * as issues from "../issues.js";
@@ -85,6 +87,8 @@ declare const fullApi: ApiFromModules<{
   graph: typeof graph;
   http: typeof http;
   integrations: typeof integrations;
+  mcp: typeof mcp;
+  mcpData: typeof mcpData;
   issueRelations: typeof issueRelations;
   issueTemplates: typeof issueTemplates;
   issues: typeof issues;
