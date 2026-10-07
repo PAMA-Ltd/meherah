@@ -18,14 +18,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Skarm - Ship at the Speed of Thought",
-    template: "%s · Skarm",
+    default: "Meherah - Ship at the Speed of Thought",
+    template: "%s · Meherah",
   },
   description:
-    "Skarm is the AI-native issue tracker for modern teams. Plan, track, and ship faster with keyboard-first workflows and intelligent automation.",
+    "Meherah is the AI-native issue tracker for modern teams. Plan, track, and ship faster with keyboard-first workflows and intelligent automation.",
   openGraph: {
     type: "website",
-    siteName: "Skarm",
+    siteName: "Meherah",
     url: SITE_URL,
   },
   twitter: {
