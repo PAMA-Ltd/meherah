@@ -576,6 +576,7 @@ export const saveIssueEmbeddings = internalMutation({
         await ctx.db.patch(item.issueId, {
           embedding: item.embedding,
           embeddingModel: "gemini-embedding-2",
+          embeddingScope: args.orgId + ":gemini-embedding-2",
         });
       }
     }
