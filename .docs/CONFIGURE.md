@@ -417,32 +417,54 @@ There are no SMTP host/user/password variables.
 
 ## MCP server
 
-The Next.js deployment exposes Meherah's MCP endpoint at:
+Meherah exposes a remote MCP server from the same Next.js deployment:
 
 ```text
 https://<your-meherah-domain>/api/mcp
 ```
 
-It is part of the same Next.js app and deployment. No separate MCP service or
-MCP environment variable is required.
+There is no second app, deployment, or MCP-specific environment secret. When
+the Meherah web app is online, the MCP endpoint is online.
 
-MCP requests require a revocable bearer credential bound to the signed-in
-Meherah user and their active workspace. Raw credentials are returned once and
-only a SHA-256 hash is stored in Convex.
+### ChatGPT authentication
 
-Credential management is Clerk-protected at `/api/mcp/credentials`:
+ChatGPT uses Meherah's built-in OAuth 2.1 + PKCE flow. OAuth discovery is
+published from the same deployment, and ChatGPT can dynamically register a
+public client. The user signs in with the normal Clerk session, chooses the
+active Meherah workspace, reviews the requested permissions, and authorizes
+the connection.
 
-- `POST` with optional `{"name":"ChatGPT","expiresAt":<epoch-ms>}` creates a credential and returns the secret once.
+The OAuth flow issues:
+
+- one-hour bearer access tokens;
+- rotating refresh tokens;
+- `mcp:read` / `mcp:write` scopes;
+- credentials bound to the authorizing Meherah user and active workspace.
+
+Raw access and refresh tokens are never stored. Convex stores SHA-256 hashes,
+and every MCP request re-checks that the credential is not expired or revoked
+and that the user is still a member of the bound workspace.
+
+To connect ChatGPT, create a custom MCP app/server and use the URL above with
+OAuth authentication. No manual MCP API key is needed for ChatGPT.
+
+### Manual bearer credentials
+
+Non-ChatGPT MCP/API clients can still use a one-time bearer credential. The
+Clerk-protected management endpoint is `/api/mcp/credentials`:
+
+- `POST` with optional `{"name":"CLI","expiresAt":<epoch-ms>}` creates a credential and returns the raw secret once.
 - `GET` lists the current user's credentials without secrets.
 - `DELETE` with `{"credentialId":"..."}` revokes one immediately.
 
-Configure an MCP client with:
+Manual client configuration:
 
 ```text
 URL: https://<your-meherah-domain>/api/mcp
-Authorization: Bearer <the one-time credential>
+Authorization: Bearer <one-time credential>
 ```
 
-The transport serves the current stateless MCP lifecycle and legacy
-initialize-based clients. Every tool invocation re-validates the credential,
-workspace membership, organization scope, and relevant business limits.
+The MCP transport supports current stateless discovery as well as
+initialize-based clients. Tool calls are organization-scoped, enforce live
+membership and plan limits, and expose read/write hints plus destructive-action
+annotations for MCP hosts.
