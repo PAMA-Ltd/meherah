@@ -479,7 +479,7 @@ export const executeRead = internalQuery({
     input: v.any(),
   },
   returns: v.any(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<unknown> => {
     await validateAuth(ctx, args);
     const input = inputObject(args.input);
 
@@ -912,7 +912,7 @@ async function updateIssueFields(
   ctx: MutationCtx,
   auth: AuthContext,
   input: AnyInput
-) {
+): Promise<unknown> {
   const issue = await resolveIssueByIdentifier(
     ctx,
     auth.orgId,
@@ -1117,7 +1117,7 @@ export const executeWrite = internalMutation({
     input: v.any(),
   },
   returns: v.any(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<unknown> => {
     const { org, user, membership } = await validateAuth(ctx, args);
     const input = inputObject(args.input);
 
