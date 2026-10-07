@@ -8,7 +8,6 @@ export function GET(request: Request) {
       authorization_servers: [origin],
       scopes_supported: ["mcp:read", "mcp:write"],
       bearer_methods_supported: ["header"],
-      resource_documentation: origin + "/.docs/mcp",
     },
     { headers: { "Cache-Control": "public, max-age=300" } }
   );
