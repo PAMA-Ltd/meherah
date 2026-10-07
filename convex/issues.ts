@@ -38,6 +38,7 @@ export const issueShape = {
   sortOrder: v.number(),
   embedding: v.optional(v.array(v.float64())),
   embeddingModel: v.optional(v.string()),
+  embeddingScope: v.optional(v.string()),
 };
 
 /** Verify an issue belongs to the caller's org before any read/write. */
