@@ -152,7 +152,7 @@ export default defineSchema({
       vectorField: "embedding",
       // Gemini Embedding 2 vectors are zero-padded to this stable index width.
       dimensions: 4096,
-      filterFields: ["orgId"],
+      filterFields: ["orgId", "embeddingModel"],
     }),
 
   labels: defineTable({
