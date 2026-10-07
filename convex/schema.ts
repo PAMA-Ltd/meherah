@@ -128,6 +128,8 @@ export default defineSchema({
     sortOrder: v.number(),
     /** Embedding for semantic duplicate detection (Track D fills this) */
     embedding: v.optional(v.array(v.float64())),
+    /** Provider marker so embeddings can be safely re-indexed after model changes. */
+    embeddingModel: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
     .index("by_team", ["teamId"])
@@ -148,7 +150,7 @@ export default defineSchema({
     })
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
-      // Must match the embedding model's output size: nv-embed-v1 → 4096.
+      // Gemini Embedding 2 vectors are zero-padded to this stable index width.
       dimensions: 4096,
       filterFields: ["orgId"],
     }),
@@ -215,6 +217,20 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_org_and_type", ["orgId", "type"])
     .index("by_installation", ["installationId"]),
+
+  /** Revocable bearer credentials for the in-app MCP server. Raw tokens are never stored. */
+  mcpCredentials: defineTable({
+    orgId: v.id("organizations"),
+    userId: v.id("users"),
+    name: v.string(),
+    tokenHash: v.string(),
+    tokenPrefix: v.string(),
+    expiresAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_org_user", ["orgId", "userId"]),
 
   /** Single-use nonces binding an integration connect (GitHub install /
       Figma OAuth) back to org + user. */
