@@ -54,9 +54,9 @@ Comments (+@mentions using `organizations.listMembers`), activity feed rendering
 
 ### Track D - AI Agent (`track/ai-agent`)
 
-Convex Agent component (`@convex-dev/agent`) with OpenAI (`@ai-sdk/openai`), org-scoped tools (create/update/search issues, cycle summary, project status, list members - reuse internal logic, enforce org scoping in EVERY tool), chat UI at `/ai`, triage assist (embeddings on issue create via scheduled internal action filling `issues.embedding`, vector index `by_embedding`, dimensions 1536), duplicate detection, standup/cycle reports, rate limiting (`@convex-dev/rate-limiter`: 50 msgs/user/day on Pro, unlimited Enterprise), gate everything with `hasAiAccess(ctx.org)` and `has({ feature: "ai_agent" })` in UI.
+Convex Agent component (`@convex-dev/agent`) with Gemini through the OpenAI-compatible AI SDK provider, org-scoped tools (create/update/search issues, cycle summary, project status, list members - reuse internal logic, enforce org scoping in EVERY tool), chat UI at `/ai`, triage assist (embeddings on issue create via scheduled internal action filling `issues.embedding`, vector index `by_embedding`, stable 4096-dimension padded vectors), duplicate detection, standup/cycle reports, rate limiting (`@convex-dev/rate-limiter`: 50 msgs/user/day on Pro, unlimited Enterprise), gate everything with `hasAiAccess(ctx.org)` and `has({ feature: "ai_agent" })` in UI.
 **Owns:** `convex/agent/` (use `"use node"` only in action files needing it), `components/ai/`, `app/(app)/[orgSlug]/ai/`.
-**Env:** `NVIDIA_API_KEY` must be set on the Convex deployment (`npx convex env set NVIDIA_API_KEY ...` from main checkout - ask the human if missing).
+**Env:** `GEMINI_API_KEY` must be set on the Convex deployment. The default chat model is `gemini-3.8-flash` and semantic embeddings use `gemini-embedding-2`.
 
 ### Track E - Billing & Gating (`track/billing`)
 
