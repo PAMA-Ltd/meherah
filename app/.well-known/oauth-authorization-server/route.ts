@@ -1,7 +1,9 @@
+import { SITE_URL } from "@/lib/site";
+
 export const dynamic = "force-dynamic";
 
-export function GET(request: Request) {
-  const origin = new URL(request.url).origin;
+export function GET() {
+  const origin = new URL(SITE_URL).origin;
   return Response.json(
     {
       issuer: origin,
