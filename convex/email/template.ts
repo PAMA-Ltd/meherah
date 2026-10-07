@@ -136,7 +136,7 @@ export function renderDigestHtml(data: DigestData, appUrl: string): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Your Skarm digest</title>
+  <title>Your Meherah digest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;700&display=swap" rel="stylesheet" />
@@ -157,9 +157,7 @@ export function renderDigestHtml(data: DigestData, appUrl: string): string {
         <tr>
           <td style="background:linear-gradient(135deg,#6a76e0,#4f5ac4);background-color:#5e6ad2;padding:18px 32px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-              <td align="left" style="vertical-align:middle;">
-                <img src="https://cdn.corenexis.com/f/1H0MUw80rkA.svg" width="30" height="30" alt="Skarm" style="border-radius:7px;vertical-align:middle;" />
-                <span style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;vertical-align:middle;">&nbsp;&nbsp;Skarm</span>
+              <td align="left" style="vertical-align:middle;">                <span style="font-size:16px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;vertical-align:middle;">Meherah</span>
               </td>
               <td align="right" style="vertical-align:middle;font-size:12px;color:#dfe2ff;">${escapeHtml(data.orgName)}</td>
             </tr></table>
@@ -170,7 +168,7 @@ export function renderDigestHtml(data: DigestData, appUrl: string): string {
         </td></tr>
         ${body}
         <tr><td style="padding:26px 32px 24px 32px;">
-          <a href="${appUrl}/${data.orgSlug}" style="display:inline-block;background:#5e6ad2;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;padding:9px 18px;border-radius:8px;">Open Skarm</a>
+          <a href="${appUrl}/${data.orgSlug}" style="display:inline-block;background:#5e6ad2;color:#ffffff;font-size:13px;font-weight:600;text-decoration:none;padding:9px 18px;border-radius:8px;">Open Meherah</a>
         </td></tr>
         <tr><td style="padding:14px 32px 20px 32px;border-top:1px solid #ececf1;">
           <p style="margin:0;font-size:11px;color:#9a9aa5;">

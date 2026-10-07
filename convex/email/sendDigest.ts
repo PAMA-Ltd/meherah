@@ -13,7 +13,7 @@ import { renderDigestHtml } from "./template";
  *   SMTP_USER / SMTP_PASSWORD  - SMTP username + password (app password for Gmail)
  *   SMTP_HOST                  - e.g. smtp.gmail.com, email-smtp.<region>.amazonaws.com
  *   SMTP_PORT                  - defaults to 465 (implicit TLS)
- *   SMTP_FROM                  - sender the provider allows, "Skarm <you@example.com>"
+ *   SMTP_FROM                  - sender the provider allows, "Meherah <you@example.com>"
  *
  * Links in the email are built from SITE_URL - see lib/siteUrl.ts.
  */
@@ -67,12 +67,12 @@ export const testTo = internalAction({
       return "SMTP_USER / SMTP_PASSWORD are not set";
     }
     const info = await transport().sendMail({
-      from: process.env.SMTP_FROM ?? "Skarm <no-reply@example.com>",
+      from: process.env.SMTP_FROM ?? "Meherah <no-reply@example.com>",
       to: args.to,
-      subject: "Skarm test email - SES SMTP is working",
+      subject: "Meherah test email - SES SMTP is working",
       html: `<div style="font-family:sans-serif;padding:24px;">
-        <p style="font-size:16px;"><strong>&#10047; Skarm</strong></p>
-        <p>This is a test email from your Skarm deployment. If you are reading
+        <p style="font-size:16px;"><strong>&#10047; Meherah</strong></p>
+        <p>This is a test email from your Meherah deployment. If you are reading
         this, the SES SMTP configuration works end to end.</p>
       </div>`,
     });
@@ -116,7 +116,7 @@ export const deliver = internalAction({
     const subject = `Your ${data.orgName} digest${counts.length ? ` - ${counts.join(", ")}` : ""}`;
 
     await transport().sendMail({
-      from: process.env.SMTP_FROM ?? "Skarm <no-reply@example.com>",
+      from: process.env.SMTP_FROM ?? "Meherah <no-reply@example.com>",
       to: data.email,
       subject,
       html,

@@ -1,8 +1,8 @@
-# Skarm
+# Meherah
 
 **Ship at the speed of thought.**
 
-Skarm is an AI-native issue tracker for teams that plan, track, and ship
+Meherah is an AI-native issue tracker for teams that plan, track, and ship
 together. It combines a fast, keyboard-first workspace with an AI agent, a
 visual dependency graph, scheduled email digests, and two-way GitHub and
 Figma sync. It is a multi-tenant SaaS built with Next.js, Convex, and Clerk,
@@ -13,12 +13,12 @@ with real-time updates across every client.
 - Sign up: /sign-up
 - Sign in: /sign-in
 - LLM summary: /llms.txt
-- Source: https://github.com/MasterBhuvnesh/skarm
+- Source: https://github.com/PAMA-Ltd/meherah
 
 ## Who it is for
 
 Product and engineering teams who want the speed of a keyboard-first tool
-without giving up structure. Skarm suits a single team tracking bugs and
+without giving up structure. Meherah suits a single team tracking bugs and
 features, or a whole organization running multiple teams, projects, and
 sprints in parallel.
 
@@ -55,7 +55,7 @@ sprints in parallel.
 
 - Full-text search over issue titles and descriptions, with search on both
   the list and board views, showing why each result matched.
-- A duplicate warning at creation: as you type an issue title, Skarm searches
+- A duplicate warning at creation: as you type an issue title, Meherah searches
   the workspace and surfaces similar existing issues before you file a twin.
 - Semantic duplicate detection for the AI agent, powered by vector
   embeddings on every issue.
@@ -125,10 +125,10 @@ sprints in parallel.
   from the API with no manual webhook setup.
 - Projects connect one or more repositories.
 - Reference an issue key like `ENG-42` in a branch, pull request title, or
-  description and Skarm links the PR to that issue. Opened PRs move the issue
+  description and Meherah links the PR to that issue. Opened PRs move the issue
   to In Review; merged PRs mark it Done.
-- Create GitHub issues directly from Skarm, and have edits, comments, and
-  open or close actions on GitHub flow back into Skarm (two-way sync).
+- Create GitHub issues directly from Meherah, and have edits, comments, and
+  open or close actions on GitHub flow back into Meherah (two-way sync).
 - Automated events appear as a dedicated GitHub actor in the timeline and
   inbox, never disguised as a teammate.
 
@@ -182,4 +182,4 @@ Full details: /pricing (markdown: /pricing.md).
 - [Sign up](/sign-up)
 - [Sign in](/sign-in)
 - [llms.txt](/llms.txt)
-- [Source repository](https://github.com/MasterBhuvnesh/skarm)
+- [Source repository](https://github.com/PAMA-Ltd/meherah)
