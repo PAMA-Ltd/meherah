@@ -1,0 +1,47 @@
+name: Validate
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: validate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint changed files
+        shell: bash
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}" -- '*.ts' '*.tsx' '*.js' '*.jsx')
+          if (( ${#files[@]} == 0 )); then
+            echo "No changed JS/TS files to lint."
+            exit 0
+          fi
+          printf 'Linting %s\n' "${files[@]}"
+          pnpm exec eslint "${files[@]}"

@@ -37,6 +37,8 @@ export const issueShape = {
   dueDate: v.optional(v.number()),
   sortOrder: v.number(),
   embedding: v.optional(v.array(v.float64())),
+  embeddingModel: v.optional(v.string()),
+  embeddingScope: v.optional(v.string()),
 };
 
 /** Verify an issue belongs to the caller's org before any read/write. */
@@ -573,6 +575,16 @@ export const update = orgMutation({
     // Keep pushed Figma Dev Mode resources ("ENG-42 · Status · Title") fresh.
     if (updates.title !== undefined || updates.status !== undefined) {
       await scheduleFigmaDevSync(ctx, issue._id);
+    }
+    // Keep an already-indexed issue semantically fresh after content edits.
+    // Missing embeddings are still filled lazily by ensureOrgEmbeddings.
+    if (
+      issue.embedding !== undefined &&
+      (args.title !== undefined || args.description !== undefined)
+    ) {
+      await ctx.scheduler.runAfter(0, internal.agent.embeddings.embedIssue, {
+        issueId: issue._id,
+      });
     }
     return null;
   },

@@ -542,7 +542,12 @@ export const issuesMissingEmbeddings = internalQuery({
       .query("issues")
       .withIndex("by_org", (q) => q.eq("orgId", args.orgId))
       // eslint-disable-next-line @convex-dev/no-filter-in-query
-      .filter((q) => q.eq(q.field("embedding"), undefined))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("embedding"), undefined),
+          q.neq(q.field("embeddingModel"), "gemini-embedding-2")
+        )
+      )
       .take(args.limit);
     return missing.map((issue) => ({
       issueId: issue._id,
@@ -568,7 +573,11 @@ export const saveIssueEmbeddings = internalMutation({
       // Embeddings are internal search metadata, not a user-visible edit, so
       // this intentionally does not write to the activity feed.
       if (issue && issue.orgId === args.orgId) {
-        await ctx.db.patch(item.issueId, { embedding: item.embedding });
+        await ctx.db.patch(item.issueId, {
+          embedding: item.embedding,
+          embeddingModel: "gemini-embedding-2",
+          embeddingScope: args.orgId + ":gemini-embedding-2",
+        });
       }
     }
     return null;
@@ -623,7 +632,9 @@ export const issueTriageContext = internalQuery({
         color: label.color,
       })),
       appliedLabelIds: links.map((link) => link.labelId),
-      hasEmbedding: issue.embedding !== undefined,
+      hasEmbedding:
+        issue.embedding !== undefined &&
+        issue.embeddingModel === "gemini-embedding-2",
     };
   },
 });

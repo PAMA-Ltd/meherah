@@ -8,7 +8,7 @@ Convex + env vars) first, then the GitHub integration.
 ### Prerequisites
 
 - Node.js 18+ and pnpm
-- Accounts on [Clerk](https://clerk.com), [Convex](https://convex.dev), and an [OpenAI](https://platform.openai.com) API key
+- Accounts on [Clerk](https://clerk.com), [Convex](https://convex.dev), [Google AI Studio](https://aistudio.google.com), and [Mailjet](https://www.mailjet.com)
 
 ### 1. Install
 
@@ -129,7 +129,7 @@ Run `npx convex dev` to create or link a project, then set env vars on the deplo
 ```bash
 npx convex env set CLERK_FRONTEND_API_URL https://your-instance.clerk.accounts.dev
 npx convex env set CLERK_WEBHOOK_SECRET whsec_...
-npx convex env set OPENAI_API_KEY sk-...
+npx convex env set GEMINI_API_KEY <gemini api key>\nnpx convex env set MAILJET_API_KEY <mailjet api key>\nnpx convex env set MAILJET_SECRET_KEY <mailjet secret key>\nnpx convex env set MAILJET_FROM_EMAIL notifications@example.com\nnpx convex env set MAILJET_FROM_NAME Meherah
 ```
 
 No `CLERK_SECRET_KEY` here. Convex never calls the Clerk Backend API: it
@@ -154,7 +154,7 @@ Runs Next.js and Convex in parallel. Open [http://localhost:3000](http://localho
 ### Deployment
 
 1. Deploy the frontend to [Vercel](https://vercel.com) and add all `.env.local` variables
-2. Run `npx convex deploy` and set `CLERK_FRONTEND_API_URL`, `CLERK_WEBHOOK_SECRET`, and `OPENAI_API_KEY` on the production Convex deployment
+2. Run `npx convex deploy` and set `CLERK_FRONTEND_API_URL`, `CLERK_WEBHOOK_SECRET`, `GEMINI_API_KEY`, and the `MAILJET_*` variables on the production Convex deployment
 3. Point the Clerk webhook at the production Convex HTTP URL and switch to production Clerk keys
 4. Configure the member limit and seat pricing on each plan in the
    production Clerk instance. Plan settings do not carry over from
@@ -170,7 +170,7 @@ Runs Next.js and Convex in parallel. Open [http://localhost:3000](http://localho
 | Webhook returns 400                      | Signing secret must match `CLERK_WEBHOOK_SECRET` (not `CLERK_SECRET_KEY`)            |
 | User missing in Convex after sign-up     | Webhook URL must end with `/clerk-webhook` on the `.convex.site` domain              |
 | Plan not updating after checkout         | Subscribe to all `subscription.*` and `subscriptionItem.*` webhook events            |
-| AI chat errors immediately               | Set `OPENAI_API_KEY` on the Convex deployment                                        |
+| AI chat errors immediately               | Set `GEMINI_API_KEY` on the Convex deployment                                        |
 | Convex types not updating                | Keep `npx convex dev` running                                                        |
 
 ---
@@ -349,127 +349,122 @@ App's installation settings - the list re-syncs automatically.
   logo - never as a workspace user. Failures are recorded on the timeline
   too ("couldn't sync this issue to GitHub").
 
-## AI models (chat + embeddings)
+## AI models (Gemini)
 
-Every model the AI features use is declared in **one file**:
-[`convex/agent/models.ts`](../convex/agent/models.ts). Nothing else in the
-codebase names a model.
+Meherah uses one Google Gemini API key for every AI surface. Set this on the
+Convex deployment:
 
-```ts
-const nvidia = createOpenAI({
-  apiKey: process.env.NVIDIA_API_KEY,        // provider API key
-  baseURL: "https://integrate.api.nvidia.com/v1", // provider endpoint
-});
-export const CHAT_MODEL_ID = "nvidia/nemotron-3-ultra-550b-a55b";
-export const EMBEDDING_MODEL_ID = "nvidia/nv-embed-v1"; // 4096 dims
+```bash
+npx convex env set GEMINI_API_KEY <your Gemini API key>
 ```
 
-### Changing the chat model
+The provider configuration is centralized in
+[`convex/agent/models.ts`](../convex/agent/models.ts):
 
-Edit `CHAT_MODEL_ID` (and, for a different provider, the `createOpenAI`
-`baseURL` + the env var it reads). Deploy with `npx convex dev --once`.
-That's it - the chat model powers the agent chat, AI drafting, triage
-suggestions, and reports; none of them care which model responds.
+- Chat/agent model: `gemini-3.8-flash`
+- Semantic embedding model: `gemini-embedding-2`
+- Provider endpoint: Google's OpenAI-compatible Gemini endpoint
 
-### Changing the embedding model - read this first
+The existing Convex Agent tools, AI drafting, triage, reports, semantic search,
+and duplicate detection all use that single provider configuration.
 
-The embedding model powers semantic search and duplicate detection, and it
-has one hard constraint: **the vector index must declare exactly the number
-of dimensions the model outputs.**
+### Embedding migration
 
-1. `EMBEDDING_MODEL_ID` in `convex/agent/models.ts` - the model.
-2. `dimensions:` in the issues table's `by_embedding` vector index in
-   [`convex/schema.ts`](../convex/schema.ts) - must equal the model's
-   output size (nv-embed-v1 → 4096, OpenAI text-embedding-3-small → 1536,
-   etc. - check the model card).
+The existing Convex vector index remains at 4096 dimensions. Gemini Embedding 2
+vectors are padded with deterministic zero dimensions before they are written,
+which preserves cosine similarity while avoiding a destructive vector-index
+migration. Each issue also stores the embedding model marker.
 
-If they disagree, every duplicate check fails at runtime with
-`Expected a vector with dimensions X, received Y` (this exact bug shipped
-once: the index said 1536 while nv-embed-v1 emits 4096). Setting up a fresh
-deployment does NOT fix it - the mismatch is in the code.
+When an AI surface opens, `ensureOrgEmbeddings` automatically finds issues
+whose embeddings are missing or still marked as a legacy provider and
+re-embeds them in background batches. There is no NVIDIA key or one-off
+clear-embeddings script to run.
 
-**After switching models, stored embeddings are stale.** Vectors from the
-old model aren't comparable to vectors from the new one (even at the same
-dimension), and wrong-length vectors silently drop out of the index. Clear
-them so the backfill re-embeds everything:
+---
 
-```ts
-// One-off internal mutation (add temporarily, run from the dashboard, delete):
-export const clearEmbeddings = internalMutation({
-  args: {},
-  returns: v.number(),
-  handler: async (ctx) => {
-    const issues = await ctx.db
-      .query("issues")
-      .filter((q) => q.neq(q.field("embedding"), undefined))
-      .take(500);
-    for (const issue of issues) {
-      await ctx.db.patch(issue._id, { embedding: undefined });
-    }
-    return issues.length; // re-run until 0
-  },
-});
+## Email digests (Mailjet)
+
+Digest scheduling, per-member timezone handling, content selection, the HTML
+template, and the hourly Convex cron are unchanged. Delivery and test emails
+use Mailjet's v3.1 Send API from
+[`convex/email/sendDigest.ts`](../convex/email/sendDigest.ts).
+
+Set these on the Convex deployment:
+
+```bash
+npx convex env set MAILJET_API_KEY <api key>
+npx convex env set MAILJET_SECRET_KEY <secret key>
+npx convex env set MAILJET_FROM_EMAIL notifications@example.com
+npx convex env set MAILJET_FROM_NAME Meherah
 ```
 
-`ensureOrgEmbeddings` (called automatically when AI surfaces mount) then
-re-embeds every issue in batches - no further action needed.
+`MAILJET_FROM_NAME` is optional and defaults to `Meherah`. The first three
+variables are required. The sender address/domain must be validated in your
+Mailjet account.
 
-### Provider notes
-
-- The provider client is OpenAI-compatible (`createOpenAI` from
-  `@ai-sdk/openai`); any OpenAI-compatible endpoint works by swapping
-  `baseURL` and the API-key env var (`NVIDIA_API_KEY` today - set it with
-  `npx convex env set NVIDIA_API_KEY <key>`).
-- NVIDIA-specific request extras (`input_type`, `truncate`) live in
-  `embedText` in [`convex/agent/embeddings.ts`](../convex/agent/embeddings.ts);
-  remove or adapt them when leaving NVIDIA.
-- `isAiConfigured()` / `assertAiConfigured()` in `models.ts` gate every AI
-  entry point on the API key env var - update them if the env var name
-  changes.
-
-## Email digests (SMTP)
-
-Per-member digest emails (Settings → Mail): schedule = morning/evening/any
-time × every day/weekly/specific weekdays, content = assigned / in
-progress / mentions / needs-focus. An hourly cron
-(`convex/crons.ts` → `email/sendDigest.sweep`) delivers each member's
-digest once per local day; empty digests are skipped.
-
-Delivery is provider-agnostic SMTP (`convex/email/sendDigest.ts`) - Gmail,
-AWS SES, Postmark, etc. Set on the Convex deployment
-(`npx convex env set …`):
-
-```env
-SMTP_HOST=smtp.gmail.com                     # or email-smtp.<region>.amazonaws.com, etc.
-SMTP_PORT=465                                # 465 = implicit TLS; 587 = STARTTLS
-SMTP_USER=you@gmail.com                      # SMTP username
-SMTP_PASSWORD=...                            # app password (Gmail) / SMTP secret (SES)
-SMTP_FROM=Meherah <you@gmail.com>              # a sender the provider allows
-```
-
-Links inside the email come from `SITE_URL` (see the GitHub integration
-section). It is shared by every backend-generated link, so set it once.
-`APP_URL` was the former name for this and is still read as a fallback,
-but new deployments should set `SITE_URL`.
-
-Provider notes:
-
-- **Gmail**: create an [App Password](https://myaccount.google.com/apppasswords)
-  (needs 2FA on the account) and use it as `SMTP_PASSWORD`. `SMTP_FROM` must be
-  that Gmail address. Easiest for testing - no identity/domain verification,
-  no sandbox. Watch the ~500 messages/day limit.
-- **AWS SES**: `SMTP_HOST=email-smtp.<region>.amazonaws.com` (the region must
-  match where the SMTP creds were created). The from address/domain must be a
-  **verified** SES identity, and while the account is in the SES **sandbox**
-  the recipient must be verified too - request production access to email
-  anyone.
-- Template lives in `convex/email/template.ts`; a static preview is at
-  `.docs/digest-email-preview.html`.
+Links inside digest emails continue to come from `SITE_URL`.
 
 Testing:
 
-- **CLI** (no login, quickest pipe check):
-  `npx convex run email/sendDigest:testTo '{"to":"you@example.com"}'` -
-  returns `sent: <id>` or the raw SMTP error (auth / region / unverified).
-- **Send test** on the Mail settings page emails the signed-in member their
-  own real digest immediately, ignoring schedule guards.
+```bash
+npx convex run email/sendDigest:testTo '{"to":"you@example.com"}'
+```
+
+The Mail settings page's existing Send test action also uses Mailjet now.
+There are no SMTP host/user/password variables.
+
+---
+
+## MCP server
+
+Meherah exposes a remote MCP server from the same Next.js deployment:
+
+```text
+https://<your-meherah-domain>/api/mcp
+```
+
+There is no second app, deployment, or MCP-specific environment secret. When
+the Meherah web app is online, the MCP endpoint is online.
+
+### ChatGPT authentication
+
+ChatGPT uses Meherah's built-in OAuth 2.1 + PKCE flow. OAuth discovery is
+published from the same deployment, and ChatGPT can dynamically register a
+public client. The user signs in with the normal Clerk session, chooses the
+active Meherah workspace, reviews the requested permissions, and authorizes
+the connection.
+
+The OAuth flow issues:
+
+- one-hour bearer access tokens;
+- rotating refresh tokens;
+- `mcp:read` / `mcp:write` scopes;
+- credentials bound to the authorizing Meherah user and active workspace.
+
+Raw access and refresh tokens are never stored. Convex stores SHA-256 hashes,
+and every MCP request re-checks that the credential is not expired or revoked
+and that the user is still a member of the bound workspace.
+
+To connect ChatGPT, create a custom MCP app/server and use the URL above with
+OAuth authentication. No manual MCP API key is needed for ChatGPT.
+
+### Manual bearer credentials
+
+Non-ChatGPT MCP/API clients can still use a one-time bearer credential. The
+Clerk-protected management endpoint is `/api/mcp/credentials`:
+
+- `POST` with optional `{"name":"CLI","expiresAt":<epoch-ms>}` creates a credential and returns the raw secret once.
+- `GET` lists the current user's credentials without secrets.
+- `DELETE` with `{"credentialId":"..."}` revokes one immediately.
+
+Manual client configuration:
+
+```text
+URL: https://<your-meherah-domain>/api/mcp
+Authorization: Bearer <one-time credential>
+```
+
+The MCP transport supports current stateless discovery as well as
+initialize-based clients. Tool calls are organization-scoped, enforce live
+membership and plan limits, and expose read/write hints plus destructive-action
+annotations for MCP hosts.

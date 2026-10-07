@@ -1,0 +1,23 @@
+import { SITE_URL } from "@/lib/site";
+
+export const dynamic = "force-dynamic";
+
+export function GET() {
+  const origin = new URL(SITE_URL).origin;
+  return Response.json(
+    {
+      issuer: origin,
+      authorization_endpoint: origin + "/mcp/authorize",
+      token_endpoint: origin + "/api/mcp/oauth/token",
+      revocation_endpoint: origin + "/api/mcp/oauth/revoke",
+      registration_endpoint: origin + "/api/mcp/oauth/register",
+      scopes_supported: ["mcp:read", "mcp:write", "offline_access"],
+      response_types_supported: ["code"],
+      response_modes_supported: ["query"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
+      token_endpoint_auth_methods_supported: ["none"],
+      code_challenge_methods_supported: ["S256"],
+    },
+    { headers: { "Cache-Control": "public, max-age=300" } }
+  );
+}

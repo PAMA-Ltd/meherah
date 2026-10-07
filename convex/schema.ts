@@ -128,6 +128,10 @@ export default defineSchema({
     sortOrder: v.number(),
     /** Embedding for semantic duplicate detection (Track D fills this) */
     embedding: v.optional(v.array(v.float64())),
+    /** Provider marker so embeddings can be safely re-indexed after model changes. */
+    embeddingModel: v.optional(v.string()),
+    /** Composite org + model key used for exact vector-search isolation. */
+    embeddingScope: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
     .index("by_team", ["teamId"])
@@ -148,9 +152,9 @@ export default defineSchema({
     })
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
-      // Must match the embedding model's output size: nv-embed-v1 → 4096.
+      // Gemini Embedding 2 vectors are zero-padded to this stable index width.
       dimensions: 4096,
-      filterFields: ["orgId"],
+      filterFields: ["embeddingScope"],
     }),
 
   labels: defineTable({
@@ -215,6 +219,46 @@ export default defineSchema({
     .index("by_org", ["orgId"])
     .index("by_org_and_type", ["orgId", "type"])
     .index("by_installation", ["installationId"]),
+
+  /** Revocable bearer credentials for the in-app MCP server. Raw tokens are never stored. */
+  mcpCredentials: defineTable({
+    orgId: v.id("organizations"),
+    userId: v.id("users"),
+    name: v.string(),
+    tokenHash: v.string(),
+    tokenPrefix: v.string(),
+    expiresAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    lastUsedAt: v.optional(v.number()),
+    /** OAuth-issued credentials carry scopes + a rotating refresh token. */
+    scopes: v.optional(v.array(v.string())),
+    oauthClientId: v.optional(v.string()),
+    refreshTokenHash: v.optional(v.string()),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_refresh_token_hash", ["refreshTokenHash"])
+    .index("by_org_user", ["orgId", "userId"]),
+
+  /** Dynamically registered OAuth public clients (ChatGPT MCP). */
+  mcpOAuthClients: defineTable({
+    clientId: v.string(),
+    clientName: v.optional(v.string()),
+    redirectUris: v.array(v.string()),
+  }).index("by_client_id", ["clientId"]),
+
+  /** Short-lived one-time OAuth authorization codes, bound with PKCE. */
+  mcpOAuthCodes: defineTable({
+    codeHash: v.string(),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    resource: v.string(),
+    scopes: v.array(v.string()),
+    orgId: v.id("organizations"),
+    userId: v.id("users"),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+  }).index("by_code_hash", ["codeHash"]),
 
   /** Single-use nonces binding an integration connect (GitHub install /
       Figma OAuth) back to org + user. */

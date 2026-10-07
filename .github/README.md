@@ -33,7 +33,7 @@ A modern issue tracker for teams that plan, track, and ship together. Multi-tena
 - Comments with @mentions, emoji reactions (👍 ❤️ 😄 🎉 👀 🚀 with who-reacted tooltips), one-level reply threads, and a full activity feed per issue
 - Inbox with tabs (All / Mentions / Assigned / Status / GitHub), unread counts per tab, and a live unread badge in the sidebar
 - Notification preferences: per-channel switches (mentions, assignments, status changes, GitHub activity) enforced at the single server-side notification choke point
-- Email digests via AWS SES: each member picks morning/evening delivery, daily/weekly/custom weekdays, and content sections (assigned, in progress, mentions, needs-focus); empty digests are skipped and delivery follows the member's local timezone
+- Email digests via Mailjet: each member picks morning/evening delivery, daily/weekly/custom weekdays, and content sections (assigned, in progress, mentions, needs-focus); empty digests are skipped and delivery follows the member's local timezone
 - Sub-issues and issue relations (blocks, blocked by, related, duplicate of)
 - File attachments via Convex storage
 - Live presence: see who is viewing the same issue
@@ -68,7 +68,7 @@ A modern issue tracker for teams that plan, track, and ship together. Multi-tena
 
 - Workspace-aware chat with org-scoped tools: create, update, and search issues, summarize cycles, report project status
 - AI issue drafting: one-line idea → full spec with acceptance criteria, priority, estimate, labels, sub-issues, and relations to real existing issues - with prompt guidance, length control (short → thorough), rephrase, and discard
-- Duplicate detection via 4096-dim vector embeddings (NVIDIA NV-Embed) on every issue
+- Duplicate detection via Gemini Embedding 2 vectors on every issue
 - Triage assist: AI-suggested priority and labels for new issues
 - Chat and drafting share one allowance: 50 messages/user/day on Pro, unlimited on Enterprise
 
@@ -101,8 +101,8 @@ flowchart TB
     GHHTTP --> Convex
     Convex -->|"Issue + repo sync via installation tokens"| GitHub
     Convex <-->|"OAuth: previews, comments, dev resources"| Figma[Figma REST API]
-    Convex -->|"Agent tools + embeddings"| NVIDIA[NVIDIA NIM]
-    Convex -->|"Email digests via SMTP"| SES[AWS SES]
+    Convex -->|"Agent tools + embeddings"| Gemini[Google Gemini]
+    Convex -->|"Email digests via API"| Mailjet[Mailjet]
     Convex -->|"File storage"| Storage[Convex Storage]
     Browser -->|"proxy.ts middleware"| Clerk
 ```
@@ -126,8 +126,9 @@ Full setup lives in [`.docs/CONFIGURE.md`](../.docs/CONFIGURE.md):
 - **App setup** - `.env.local`, Clerk (JWT template, billing plans, webhooks), Convex env vars, deployment, and a troubleshooting table
 - **GitHub integration** - creating the GitHub App (webhook + setup URLs, permissions), `GITHUB_APP_SLUG` / `GITHUB_WEBHOOK_SECRET` / `GITHUB_APP_ID` / `GITHUB_PRIVATE_KEY` (base64) env vars, and how the install → webhook → sync flow works
 - **Figma integration** - creating the Figma OAuth app (redirect URI, granular scopes) and the `FIGMA_CLIENT_ID` / `FIGMA_CLIENT_SECRET` env vars
-- **Email digests** - SES SMTP env vars (`SES_SMTP_USER/PASSWORD/HOST`, `SES_FROM_EMAIL`, `APP_URL`), sandbox caveats, and the hourly delivery sweep
-- **AI models** - where the chat + embedding models live (`convex/agent/models.ts`) and the vector-index dimension rule for swapping embedding models
+- **Email digests** - Mailjet API env vars (`MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAILJET_FROM_EMAIL`, `MAILJET_FROM_NAME`) and the hourly delivery sweep
+- **AI models** - one `GEMINI_API_KEY`, default `gemini-3.8-flash`, and automatic legacy-embedding backfill
+- **MCP server** - same-deployment `/api/mcp`, ChatGPT OAuth 2.1 + PKCE, revocable workspace-scoped credentials
 
 Once configured: open [http://localhost:3000](http://localhost:3000), sign up, create an organization, and you are in.
 
@@ -173,11 +174,12 @@ All tables are defined in [`convex/schema.ts`](../convex/schema.ts).
 | `convex/lib/customFunctions.ts` | `orgQuery` / `orgMutation` wrappers                         |
 | `convex/lib/limits.ts`          | Free-plan limit enforcement                                 |
 | `convex/agent/`                 | AI agent: chat, drafting, embeddings, triage, rate limiting (models in `agent/models.ts`) |
-| `convex/emailDigests.ts`, `convex/email/` | Digest settings/content + SES SMTP delivery and HTML template |
+| `convex/emailDigests.ts`, `convex/email/` | Digest settings/content + Mailjet delivery and HTML template |
 | `convex/github/`, `convex/figma.ts` | GitHub (transport/sync split) and Figma integration    |
 | `convex/graph.ts`               | Dependency-graph data and saved layouts                     |
 | `components/`                   | UI: shell, board, issues, issue detail, graph, billing, AI  |
 | `lib/plans.ts`                  | Single source of truth for Clerk plan IDs and pricing       |
+| `app/api/mcp/`, `convex/mcp*.ts` | Authenticated in-app MCP transport + revocable credentials  |
 | `proxy.ts`                      | Clerk middleware for route protection                       |
 
 ## COMMANDS

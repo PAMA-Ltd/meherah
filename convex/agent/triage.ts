@@ -10,6 +10,7 @@ import { embedText } from "./embeddings";
 import {
   AI_NOT_CONFIGURED_MESSAGE,
   chatModel,
+  embeddingScope,
   isAiConfigured,
 } from "./models";
 
@@ -84,7 +85,7 @@ export const findDuplicates = action({
       const results = await ctx.vectorSearch("issues", "by_embedding", {
         vector: embedding,
         limit: 8,
-        filter: (q) => q.eq("orgId", auth.orgId),
+        filter: (q) => q.eq("embeddingScope", embeddingScope(auth.orgId)),
       });
       const candidates = results.filter(
         (result) => result._id !== args.issueId && result._score >= 0.4

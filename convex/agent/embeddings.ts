@@ -1,28 +1,45 @@
-import { embed, embedMany } from "ai";
+import { embed } from "ai";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { orgMutation } from "../lib/customFunctions";
 import { hasAiAccess } from "../lib/limits";
-import { embeddingModel, isAiConfigured } from "./models";
+import {
+  EMBEDDING_MODEL_ID,
+  embeddingModel,
+  isAiConfigured,
+} from "./models";
 
 const BACKFILL_BATCH_SIZE = 16;
+const VECTOR_INDEX_DIMENSIONS = 4096;
 
-/** Embed one text snippet with NVIDIA-specific parameters. */
+/**
+ * Gemini Embedding 2 defaults to 3072 dimensions. Meherah's existing vector
+ * index is 4096 dimensions, so pad with deterministic zeros instead of doing
+ * a destructive index migration. Cosine similarity is preserved by appending
+ * the same zero dimensions to every new vector.
+ */
+function toIndexVector(embedding: number[]): number[] {
+  if (embedding.length > VECTOR_INDEX_DIMENSIONS) {
+    throw new Error(
+      "Embedding has " +
+        embedding.length +
+        " dimensions; Meherah index supports " +
+        VECTOR_INDEX_DIMENSIONS
+    );
+  }
+  if (embedding.length === VECTOR_INDEX_DIMENSIONS) return embedding;
+  return embedding.concat(
+    Array(VECTOR_INDEX_DIMENSIONS - embedding.length).fill(0)
+  );
+}
+
 export async function embedText(text: string): Promise<number[]> {
   const { embedding } = await embed({
     model: embeddingModel,
     value: text.slice(0, 8000),
-    providerOptions: {
-      openai: {
-        extraBody: {
-          input_type: "query",
-          truncate: "NONE",
-        },
-      },
-    },
   });
-  return embedding;
+  return toIndexVector(embedding);
 }
 
 /**
@@ -34,18 +51,14 @@ export const embedIssue = internalAction({
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     if (!isAiConfigured()) {
-      // Graceful no-op: the backfill loop will pick this issue up once the
-      // deployment has an NVIDIA_API_KEY.
-      console.warn("Skipping issue embedding: NVIDIA_API_KEY is not set");
+      console.warn("Skipping issue embedding: GEMINI_API_KEY is not set");
       return null;
     }
     const source = await ctx.runQuery(
       internal.agent.data.issueEmbeddingSource,
       { issueId: args.issueId }
     );
-    if (!source) {
-      return null;
-    }
+    if (!source) return null;
     const embedding = await embedText(source.text);
     await ctx.runMutation(internal.agent.data.saveIssueEmbeddings, {
       orgId: source.orgId,
@@ -56,43 +69,35 @@ export const embedIssue = internalAction({
 });
 
 /**
- * Batch-fill embeddings for every issue in an org that is missing one
- * (issues created before Track D, or while the API key was missing).
- * Re-schedules itself until the org is fully embedded.
+ * Re-embed missing or legacy-provider vectors. The model marker lets this
+ * migrate old NVIDIA vectors automatically without a one-off admin script.
  */
 export const backfillOrgEmbeddings = internalAction({
   args: { orgId: v.id("organizations") },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     if (!isAiConfigured()) {
-      console.warn("Skipping embedding backfill: NVIDIA_API_KEY is not set");
+      console.warn("Skipping embedding backfill: GEMINI_API_KEY is not set");
       return null;
     }
     const batch = await ctx.runQuery(
       internal.agent.data.issuesMissingEmbeddings,
       { orgId: args.orgId, limit: BACKFILL_BATCH_SIZE }
     );
-    if (batch.length === 0) {
-      return null;
+    if (batch.length === 0) return null;
+
+    // Gemini Embedding 2 aggregates multi-part inputs. Embed each issue
+    // independently so every stored vector represents exactly one issue.
+    const items = [];
+    for (const item of batch) {
+      items.push({
+        issueId: item.issueId,
+        embedding: await embedText(item.text),
+      });
     }
-    const { embeddings } = await embedMany({
-      model: embeddingModel,
-      values: batch.map((item) => item.text.slice(0, 8000)),
-      providerOptions: {
-        openai: {
-          extraBody: {
-            input_type: "query",
-            truncate: "NONE",
-          },
-        },
-      },
-    });
     await ctx.runMutation(internal.agent.data.saveIssueEmbeddings, {
       orgId: args.orgId,
-      items: batch.map((item, index) => ({
-        issueId: item.issueId,
-        embedding: embeddings[index],
-      })),
+      items,
     });
     if (batch.length === BACKFILL_BATCH_SIZE) {
       await ctx.scheduler.runAfter(
@@ -105,25 +110,21 @@ export const backfillOrgEmbeddings = internalAction({
   },
 });
 
-/**
- * Idempotent kick-off for the org embedding backfill. Called from the AI
- * surfaces on mount; cheap no-op when everything is already embedded.
- */
 export const ensureOrgEmbeddings = orgMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx): Promise<null> => {
-    if (!hasAiAccess(ctx.org)) {
-      // Silent no-op - semantic features are plan-gated elsewhere.
-      return null;
-    }
-    // The frozen schema has no "missing embedding" index; this org-scoped
-    // existence check stops at the first match.
+    if (!hasAiAccess(ctx.org)) return null;
     const missing = await ctx.db
       .query("issues")
       .withIndex("by_org", (q) => q.eq("orgId", ctx.org._id))
       // eslint-disable-next-line @convex-dev/no-filter-in-query
-      .filter((q) => q.eq(q.field("embedding"), undefined))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("embedding"), undefined),
+          q.neq(q.field("embeddingModel"), EMBEDDING_MODEL_ID)
+        )
+      )
       .take(1);
     if (missing.length > 0) {
       await ctx.scheduler.runAfter(
