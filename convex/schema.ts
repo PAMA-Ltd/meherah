@@ -130,6 +130,8 @@ export default defineSchema({
     embedding: v.optional(v.array(v.float64())),
     /** Provider marker so embeddings can be safely re-indexed after model changes. */
     embeddingModel: v.optional(v.string()),
+    /** Composite org + model key used for exact vector-search isolation. */
+    embeddingScope: v.optional(v.string()),
   })
     .index("by_org", ["orgId"])
     .index("by_team", ["teamId"])
@@ -152,7 +154,7 @@ export default defineSchema({
       vectorField: "embedding",
       // Gemini Embedding 2 vectors are zero-padded to this stable index width.
       dimensions: 4096,
-      filterFields: ["orgId", "embeddingModel"],
+      filterFields: ["embeddingScope"],
     }),
 
   labels: defineTable({
