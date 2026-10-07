@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const name =
       typeof body.name === "string" && body.name.trim()
         ? body.name.trim()
-        : "ChatGPT";
+        : "MCP API client";
     const expiresAt =
       typeof body.expiresAt === "number" && Number.isFinite(body.expiresAt)
         ? body.expiresAt
