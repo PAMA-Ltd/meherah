@@ -1,7 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
-const SCOPES = new Set(["mcp:read", "mcp:write"]);
+const SCOPES = new Set(["mcp:read", "mcp:write", "offline_access"]);
 
 export type OAuthAuthorizationFields = {
   clientId: string;
@@ -29,7 +29,7 @@ export async function validateOAuthAuthorization(
   const codeChallengeMethod = value(params, "code_challenge_method");
   const state = value(params, "state");
   const resource = value(params, "resource");
-  const requestedScopes = (value(params, "scope") ?? "mcp:read mcp:write")
+  const requestedScopes = (value(params, "scope") ?? "mcp:read mcp:write offline_access")
     .split(/\s+/)
     .filter(Boolean);
   const scopes = [...new Set(requestedScopes)];
