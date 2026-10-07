@@ -228,9 +228,35 @@ export default defineSchema({
     expiresAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
     lastUsedAt: v.optional(v.number()),
+    /** OAuth-issued credentials carry scopes + a rotating refresh token. */
+    scopes: v.optional(v.array(v.string())),
+    oauthClientId: v.optional(v.string()),
+    refreshTokenHash: v.optional(v.string()),
   })
     .index("by_token_hash", ["tokenHash"])
+    .index("by_refresh_token_hash", ["refreshTokenHash"])
     .index("by_org_user", ["orgId", "userId"]),
+
+  /** Dynamically registered OAuth public clients (ChatGPT MCP). */
+  mcpOAuthClients: defineTable({
+    clientId: v.string(),
+    clientName: v.optional(v.string()),
+    redirectUris: v.array(v.string()),
+  }).index("by_client_id", ["clientId"]),
+
+  /** Short-lived one-time OAuth authorization codes, bound with PKCE. */
+  mcpOAuthCodes: defineTable({
+    codeHash: v.string(),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    resource: v.string(),
+    scopes: v.array(v.string()),
+    orgId: v.id("organizations"),
+    userId: v.id("users"),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+  }).index("by_code_hash", ["codeHash"]),
 
   /** Single-use nonces binding an integration connect (GitHub install /
       Figma OAuth) back to org + user. */
