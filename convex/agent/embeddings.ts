@@ -1,4 +1,4 @@
-import { embed, embedMany } from "ai";
+import { embed } from "ai";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
@@ -86,16 +86,18 @@ export const backfillOrgEmbeddings = internalAction({
     );
     if (batch.length === 0) return null;
 
-    const { embeddings } = await embedMany({
-      model: embeddingModel,
-      values: batch.map((item) => item.text.slice(0, 8000)),
-    });
+    // Gemini Embedding 2 aggregates multi-part inputs. Embed each issue
+    // independently so every stored vector represents exactly one issue.
+    const items = [];
+    for (const item of batch) {
+      items.push({
+        issueId: item.issueId,
+        embedding: await embedText(item.text),
+      });
+    }
     await ctx.runMutation(internal.agent.data.saveIssueEmbeddings, {
       orgId: args.orgId,
-      items: batch.map((item, index) => ({
-        issueId: item.issueId,
-        embedding: toIndexVector(embeddings[index]),
-      })),
+      items,
     });
     if (batch.length === BACKFILL_BATCH_SIZE) {
       await ctx.scheduler.runAfter(
