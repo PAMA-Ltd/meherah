@@ -37,6 +37,7 @@ export const issueShape = {
   dueDate: v.optional(v.number()),
   sortOrder: v.number(),
   embedding: v.optional(v.array(v.float64())),
+  embeddingModel: v.optional(v.string()),
 };
 
 /** Verify an issue belongs to the caller's org before any read/write. */
