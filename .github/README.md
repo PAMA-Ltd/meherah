@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="../public/skarm-tile.svg" alt="Skarm logo" width="80" />
+<img src="../public/skarm-tile.svg" alt="Meherah logo" width="80" />
 
 # SKARM
 
@@ -54,7 +54,7 @@ A modern issue tracker for teams that plan, track, and ship together. Multi-tena
 - One-click connect: users pick repositories on GitHub's install screen; the repo list is pulled from the API, no manual webhook setup per workspace
 - Projects connect one or more repos (live-fetched picker with Public/Private badges, shows who connected)
 - "Also create this issue on GitHub" at creation; edits, status changes, and attachments mirror to the GitHub twin (merged PR → Done closes it)
-- Two-way sync: editing, closing/reopening, or commenting on the linked GitHub issue reflects back into Skarm; bot echoes are filtered to avoid loops
+- Two-way sync: editing, closing/reopening, or commenting on the linked GitHub issue reflects back into Meherah; bot echoes are filtered to avoid loops
 - PRs link to issues via `ENG-42` in branch names, titles, or bodies; opened PRs move issues to In Review, merged PRs to Done
 - All automated events appear in the timeline and inbox as a dedicated GitHub system actor, never as a user
 

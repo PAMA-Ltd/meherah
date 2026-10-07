@@ -1,7 +1,7 @@
 # skarm-ai (GitHub App)
 
-Reference for Skarm's GitHub App, the integration that keeps repositories and
-Skarm issues in sync. The app is created once per deployment; after that,
+Reference for Meherah's GitHub App, the integration that keeps repositories and
+Meherah issues in sync. The app is created once per deployment; after that,
 every workspace connects itself with one click and picks which repositories
 to grant.
 
@@ -24,14 +24,14 @@ which is built from the slug, changes; see `GITHUB_APP_SLUG` below.
 
 Shown to users on the app page and during installation:
 
-> Skarm is an AI-native issue tracker for teams that plan, track, and ship
-> together. This app connects your repositories to Skarm so code and issues
+> Meherah is an AI-native issue tracker for teams that plan, track, and ship
+> together. This app connects your repositories to Meherah so code and issues
 > stay in sync. Mention an issue key like ENG-42 in a branch name, pull
-> request title, or description and Skarm links the PR to that issue and
+> request title, or description and Meherah links the PR to that issue and
 > moves it along automatically: opened PRs shift the issue to In Review,
 > merged PRs mark it Done. You can also create issues in a repo directly
-> from Skarm, and edits, comments, and open or close changes made on GitHub
-> flow back into Skarm. The app requests read access to repository metadata
+> from Meherah, and edits, comments, and open or close changes made on GitHub
+> flow back into Meherah. The app requests read access to repository metadata
 > and pull requests, plus read and write on issues for two-way sync.
 
 ## Settings reference
@@ -64,8 +64,8 @@ The Convex site URL is `NEXT_PUBLIC_CONVEX_SITE_URL` (note `.site`, not
 | --- | --- |
 | Installation | know when a workspace installs or removes the app |
 | Pull request | move issues to In Review on open, Done on merge |
-| Issues | reflect GitHub issue edits and open/close back into Skarm |
-| Issue comment | mirror GitHub comments onto the Skarm issue |
+| Issues | reflect GitHub issue edits and open/close back into Meherah |
+| Issue comment | mirror GitHub comments onto the Meherah issue |
 
 Events from bots (including the app itself) are ignored to prevent echo loops.
 
@@ -96,27 +96,27 @@ Keep the `.pem` outside the repo (never in `public/`, which is web-served).
 
 ## How it works
 
-1. Connect: a workspace admin clicks Connect (Settings, Integrations). Skarm
+1. Connect: a workspace admin clicks Connect (Settings, Integrations). Meherah
    mints a single-use nonce and sends the admin to
    `github.com/apps/skarm-ai/installations/new?state=<nonce>`.
 2. Install: the admin picks repositories on GitHub's install screen. GitHub
-   redirects to the Setup URL with an `installation_id`; Skarm binds the
+   redirects to the Setup URL with an `installation_id`; Meherah binds the
    installation to the org via the nonce and fetches the repo list from the
    API (so the list is never empty due to a webhook race).
-3. Tokens: for each API call, Skarm signs an app JWT (RS256) with the private
+3. Tokens: for each API call, Meherah signs an app JWT (RS256) with the private
    key, exchanges it for a short-lived installation token, and calls the
    GitHub REST API.
 4. Projects connect repos: a project's Properties panel lists connected
    repositories and offers a live-fetched picker.
 5. Issue creation: when a new issue's project has connected repos, the create
    dialog offers "Also create this issue on GitHub". The issue is created in
-   Skarm first, then a scheduled action creates the GitHub twin and records
+   Meherah first, then a scheduled action creates the GitHub twin and records
    the link.
 6. PR linking: mention an issue key like ENG-42 in a branch, PR title, or
    body. Opened PRs move the issue to In Review, merged PRs to Done.
 7. Two-way sync: editing, closing, reopening, or commenting on the linked
-   GitHub issue flows back into Skarm. A footer on the synced body
-   (`Synced from Skarm issue ...`) is stripped on inbound edits, and bot
+   GitHub issue flows back into Meherah. A footer on the synced body
+   (`Synced from Meherah issue ...`) is stripped on inbound edits, and bot
    senders are skipped to avoid loops.
 8. System actor: all automated events appear in timelines and the inbox as a
    dedicated GitHub actor with the GitHub logo, never as a workspace user.
