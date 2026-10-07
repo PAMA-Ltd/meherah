@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import {
   hiddenOAuthFields,
+  type OAuthAuthorizationFields,
   validateOAuthAuthorization,
 } from "@/lib/mcp-oauth";
 import { SITE_URL } from "@/lib/site";
@@ -36,7 +37,7 @@ export default async function McpAuthorizePage({
     if (item !== undefined) params.set(key, item);
   }
 
-  let fields;
+  let fields: OAuthAuthorizationFields;
   try {
     fields = await validateOAuthAuthorization(
       new URL(SITE_URL).origin,
@@ -84,7 +85,11 @@ export default async function McpAuthorizePage({
                 key={scope}
                 className="rounded-md border bg-background px-2 py-1 text-xs font-medium"
               >
-                {scope === "mcp:read" ? "Read workspace data" : "Update workspace data"}
+                {scope === "mcp:read"
+                  ? "Read workspace data"
+                  : scope === "mcp:write"
+                    ? "Update workspace data"
+                    : "Keep the connection active"}
               </span>
             ))}
           </div>
