@@ -10,6 +10,7 @@ import {
 } from "./agent/models";
 
 const READ_OPERATIONS = new Set([
+  "get_profile",
   "list_teams",
   "list_members",
   "list_issues",
