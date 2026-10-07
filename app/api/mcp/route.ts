@@ -339,9 +339,19 @@ async function authorizedTokenHash(request: Request) {
 export async function POST(request: Request) {
   const tokenHash = await authorizedTokenHash(request);
   if (!tokenHash) {
-    return json(
-      { error: "A valid Meherah MCP bearer credential is required" },
-      401
+    const origin = new URL(request.url).origin;
+    return Response.json(
+      { error: "A valid Meherah MCP OAuth bearer credential is required" },
+      {
+        status: 401,
+        headers: {
+          "Cache-Control": "no-store",
+          "WWW-Authenticate":
+            'Bearer resource_metadata="' +
+            origin +
+            '/.well-known/oauth-protected-resource", scope="mcp:read mcp:write"',
+        },
+      }
     );
   }
 
