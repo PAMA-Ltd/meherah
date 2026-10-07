@@ -7,8 +7,12 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   // Read-only public issue share links (token-gated in the Convex query).
   "/share(.*)",
-  // Bearer-token MCP transport authenticates inside the route itself.
+  // MCP transport and OAuth machine endpoints authenticate inside the routes.
   "/api/mcp",
+  "/api/mcp/oauth/register",
+  "/api/mcp/oauth/token",
+  "/.well-known/oauth-protected-resource",
+  "/.well-known/oauth-authorization-server",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
