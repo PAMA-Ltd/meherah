@@ -16,6 +16,10 @@ export const EMBEDDING_MODEL_ID = "gemini-embedding-2";
 export const chatModel = gemini.chat(CHAT_MODEL_ID);
 export const embeddingModel = gemini.embedding(EMBEDDING_MODEL_ID);
 
+export function embeddingScope(orgId: string): string {
+  return orgId + ":" + EMBEDDING_MODEL_ID;
+}
+
 export function isAiConfigured(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
