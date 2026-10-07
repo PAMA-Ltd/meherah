@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
 import { orgMutation, orgQuery } from "./lib/customFunctions";
 import { embedText } from "./agent/embeddings";
 import {
@@ -52,6 +52,205 @@ const WRITE_OPERATIONS = new Set([
   "delete_issue_relation",
   "set_issue_parent",
 ]);
+
+const MCP_SCOPES = new Set(["mcp:read", "mcp:write"]);
+
+function validChatGptRedirect(uri: string): boolean {
+  try {
+    const url = new URL(uri);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "chatgpt.com" &&
+      (url.pathname.startsWith("/connector/oauth/") ||
+        url.pathname === "/connector_platform_oauth_redirect")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function normalizeScopes(scopes: string[]): string[] {
+  const unique = [...new Set(scopes)];
+  if (
+    unique.length === 0 ||
+    unique.some((scope) => !MCP_SCOPES.has(scope))
+  ) {
+    throw new ConvexError("Unsupported OAuth scope");
+  }
+  return unique;
+}
+
+function base64Url(bytes: Uint8Array): string {
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  let output = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const value = (a << 16) | (b << 8) | c;
+    output += alphabet[(value >> 18) & 63];
+    output += alphabet[(value >> 12) & 63];
+    if (i + 1 < bytes.length) output += alphabet[(value >> 6) & 63];
+    if (i + 2 < bytes.length) output += alphabet[value & 63];
+  }
+  return output;
+}
+
+async function pkceChallenge(verifier: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(verifier)
+  );
+  return base64Url(new Uint8Array(digest));
+}
+
+export const registerOAuthClient = mutation({
+  args: {
+    clientId: v.string(),
+    clientName: v.optional(v.string()),
+    redirectUris: v.array(v.string()),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    if (
+      !/^mhr_client_[A-Za-z0-9_-]{32,}$/.test(args.clientId) ||
+      args.redirectUris.length === 0 ||
+      args.redirectUris.length > 10 ||
+      args.redirectUris.some((uri) => !validChatGptRedirect(uri))
+    ) {
+      throw new ConvexError("Invalid ChatGPT OAuth client registration");
+    }
+    const existing = await ctx.db
+      .query("mcpOAuthClients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    if (existing) throw new ConvexError("OAuth client already exists");
+    await ctx.db.insert("mcpOAuthClients", {
+      clientId: args.clientId,
+      clientName: args.clientName?.slice(0, 120),
+      redirectUris: [...new Set(args.redirectUris)],
+    });
+    return args.clientId;
+  },
+});
+
+export const getOAuthClient = query({
+  args: { clientId: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({
+      clientId: v.string(),
+      clientName: v.union(v.string(), v.null()),
+      redirectUris: v.array(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const client = await ctx.db
+      .query("mcpOAuthClients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    if (!client) return null;
+    return {
+      clientId: client.clientId,
+      clientName: client.clientName ?? null,
+      redirectUris: client.redirectUris,
+    };
+  },
+});
+
+export const issueOAuthCode = orgMutation({
+  args: {
+    codeHash: v.string(),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    resource: v.string(),
+    scopes: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (
+      !/^[a-f0-9]{64}$/.test(args.codeHash) ||
+      !/^[A-Za-z0-9_-]{43}$/.test(args.codeChallenge)
+    ) {
+      throw new ConvexError("Invalid OAuth authorization request");
+    }
+    const client = await ctx.db
+      .query("mcpOAuthClients")
+      .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
+      .unique();
+    if (!client || !client.redirectUris.includes(args.redirectUri)) {
+      throw new ConvexError("OAuth client or redirect URI is invalid");
+    }
+    const scopes = normalizeScopes(args.scopes);
+    const existing = await ctx.db
+      .query("mcpOAuthCodes")
+      .withIndex("by_code_hash", (q) => q.eq("codeHash", args.codeHash))
+      .unique();
+    if (existing) throw new ConvexError("Authorization code already exists");
+    await ctx.db.insert("mcpOAuthCodes", {
+      codeHash: args.codeHash,
+      clientId: args.clientId,
+      redirectUri: args.redirectUri,
+      codeChallenge: args.codeChallenge,
+      resource: args.resource,
+      scopes,
+      orgId: ctx.org._id,
+      userId: ctx.user._id,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+    return null;
+  },
+});
+
+export const exchangeOAuthCode = action({
+  args: {
+    codeHash: v.string(),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeVerifier: v.string(),
+    accessTokenHash: v.string(),
+    accessTokenPrefix: v.string(),
+    refreshTokenHash: v.string(),
+  },
+  returns: v.object({
+    scopes: v.array(v.string()),
+    expiresIn: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    if (args.codeVerifier.length < 43 || args.codeVerifier.length > 128) {
+      throw new ConvexError("Invalid PKCE verifier");
+    }
+    const codeChallenge = await pkceChallenge(args.codeVerifier);
+    return await ctx.runMutation(internal.mcpData.exchangeOAuthCode, {
+      codeHash: args.codeHash,
+      clientId: args.clientId,
+      redirectUri: args.redirectUri,
+      codeChallenge,
+      accessTokenHash: args.accessTokenHash,
+      accessTokenPrefix: args.accessTokenPrefix,
+      refreshTokenHash: args.refreshTokenHash,
+    });
+  },
+});
+
+export const refreshOAuthCredential = action({
+  args: {
+    currentRefreshTokenHash: v.string(),
+    clientId: v.string(),
+    accessTokenHash: v.string(),
+    accessTokenPrefix: v.string(),
+    refreshTokenHash: v.string(),
+  },
+  returns: v.object({
+    scopes: v.array(v.string()),
+    expiresIn: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    return await ctx.runMutation(internal.mcpData.refreshOAuthCredential, args);
+  },
+});
 
 export const createCredential = orgMutation({
   args: {
@@ -173,6 +372,9 @@ export const execute = action({
     });
 
     if (READ_OPERATIONS.has(args.operation)) {
+      if (!auth.scopes.includes("mcp:read")) {
+        throw new ConvexError("This credential does not grant mcp:read");
+      }
       return await ctx.runQuery(internal.mcpData.executeRead, {
         orgId: auth.orgId,
         userId: auth.userId,
@@ -183,6 +385,9 @@ export const execute = action({
     }
 
     if (WRITE_OPERATIONS.has(args.operation)) {
+      if (!auth.scopes.includes("mcp:write")) {
+        throw new ConvexError("This credential does not grant mcp:write");
+      }
       return await ctx.runMutation(internal.mcpData.executeWrite, {
         orgId: auth.orgId,
         userId: auth.userId,
@@ -190,6 +395,10 @@ export const execute = action({
         operation: args.operation,
         input: args.input,
       });
+    }
+
+    if (!auth.scopes.includes("mcp:read")) {
+      throw new ConvexError("This credential does not grant mcp:read");
     }
 
     const input =
