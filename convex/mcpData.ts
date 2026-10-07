@@ -314,6 +314,7 @@ export const authenticateToken = internalQuery({
       userId: v.id("users"),
       role: v.union(v.literal("admin"), v.literal("member")),
       plan: v.union(v.literal("free"), v.literal("pro"), v.literal("enterprise")),
+      scopes: v.array(v.string()),
     })
   ),
   handler: async (ctx, args) => {
@@ -343,6 +344,116 @@ export const authenticateToken = internalQuery({
       userId: user._id,
       role: membership.role,
       plan: org.plan,
+      scopes: credential.scopes ?? ["mcp:read", "mcp:write"],
+    };
+  },
+});
+
+export const exchangeOAuthCode = internalMutation({
+  args: {
+    codeHash: v.string(),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(),
+    accessTokenHash: v.string(),
+    accessTokenPrefix: v.string(),
+    refreshTokenHash: v.string(),
+  },
+  returns: v.object({
+    scopes: v.array(v.string()),
+    expiresIn: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const code = await ctx.db
+      .query("mcpOAuthCodes")
+      .withIndex("by_code_hash", (q) => q.eq("codeHash", args.codeHash))
+      .unique();
+    if (
+      !code ||
+      code.usedAt !== undefined ||
+      code.expiresAt <= Date.now() ||
+      code.clientId !== args.clientId ||
+      code.redirectUri !== args.redirectUri ||
+      code.codeChallenge !== args.codeChallenge
+    ) {
+      throw new ConvexError("Invalid or expired authorization code");
+    }
+
+    const membership = await ctx.db
+      .query("members")
+      .withIndex("by_org_and_user", (q) =>
+        q.eq("orgId", code.orgId).eq("userId", code.userId)
+      )
+      .unique();
+    if (!membership) {
+      throw new ConvexError("Workspace membership no longer exists");
+    }
+
+    await ctx.db.patch(code._id, { usedAt: Date.now() });
+    const expiresIn = 60 * 60;
+    await ctx.db.insert("mcpCredentials", {
+      orgId: code.orgId,
+      userId: code.userId,
+      name: "ChatGPT OAuth",
+      tokenHash: args.accessTokenHash,
+      tokenPrefix: args.accessTokenPrefix,
+      expiresAt: Date.now() + expiresIn * 1000,
+      scopes: code.scopes,
+      oauthClientId: code.clientId,
+      refreshTokenHash: args.refreshTokenHash,
+    });
+    return { scopes: code.scopes, expiresIn };
+  },
+});
+
+export const refreshOAuthCredential = internalMutation({
+  args: {
+    currentRefreshTokenHash: v.string(),
+    clientId: v.string(),
+    accessTokenHash: v.string(),
+    accessTokenPrefix: v.string(),
+    refreshTokenHash: v.string(),
+  },
+  returns: v.object({
+    scopes: v.array(v.string()),
+    expiresIn: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const credential = await ctx.db
+      .query("mcpCredentials")
+      .withIndex("by_refresh_token_hash", (q) =>
+        q.eq("refreshTokenHash", args.currentRefreshTokenHash)
+      )
+      .unique();
+    if (
+      !credential ||
+      credential.revokedAt !== undefined ||
+      credential.oauthClientId !== args.clientId
+    ) {
+      throw new ConvexError("Invalid or revoked refresh token");
+    }
+
+    const membership = await ctx.db
+      .query("members")
+      .withIndex("by_org_and_user", (q) =>
+        q.eq("orgId", credential.orgId).eq("userId", credential.userId)
+      )
+      .unique();
+    if (!membership) {
+      throw new ConvexError("Workspace membership no longer exists");
+    }
+
+    const expiresIn = 60 * 60;
+    await ctx.db.patch(credential._id, {
+      tokenHash: args.accessTokenHash,
+      tokenPrefix: args.accessTokenPrefix,
+      refreshTokenHash: args.refreshTokenHash,
+      expiresAt: Date.now() + expiresIn * 1000,
+      lastUsedAt: Date.now(),
+    });
+    return {
+      scopes: credential.scopes ?? ["mcp:read", "mcp:write"],
+      expiresIn,
     };
   },
 });
