@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { SITE_URL } from "@/lib/site";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -386,7 +387,7 @@ async function authorizedTokenHash(request: Request) {
 export async function POST(request: Request) {
   const tokenHash = await authorizedTokenHash(request);
   if (!tokenHash) {
-    const origin = new URL(request.url).origin;
+    const origin = new URL(SITE_URL).origin;
     return Response.json(
       { error: "A valid Meherah MCP OAuth bearer credential is required" },
       {
