@@ -241,7 +241,7 @@ export default defineSchema({
     .index("by_refresh_token_hash", ["refreshTokenHash"])
     .index("by_org_user", ["orgId", "userId"]),
 
-  /** Dynamically registered OAuth public clients (ChatGPT MCP). */
+  /** Dynamically registered OAuth public clients (ChatGPT and RFC 8252 native hosts). */
   mcpOAuthClients: defineTable({
     clientId: v.string(),
     clientName: v.optional(v.string()),

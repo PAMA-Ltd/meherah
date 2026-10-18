@@ -426,13 +426,23 @@ https://<your-meherah-domain>/api/mcp
 There is no second app, deployment, or MCP-specific environment secret. When
 the Meherah web app is online, the MCP endpoint is online.
 
-### ChatGPT authentication
+### OAuth clients
 
-ChatGPT uses Meherah's built-in OAuth 2.1 + PKCE flow. OAuth discovery is
-published from the same deployment, and ChatGPT can dynamically register a
-public client. The user signs in with the normal Clerk session, chooses the
+Clients use Meherah's built-in OAuth 2.1 + PKCE flow. OAuth discovery is
+published from the same deployment, and clients register themselves
+dynamically. The user signs in with the normal Clerk session, chooses the
 active Meherah workspace, reviews the requested permissions, and authorizes
 the connection.
+
+Dynamic registration accepts two redirect families:
+
+- ChatGPT connector callbacks on `https://chatgpt.com/connector/...`;
+- RFC 8252 loopback callbacks such as `http://127.0.0.1/callback` or
+  `http://localhost:<port>/callback`, used by native MCP hosts.
+
+Loopback ports are ephemeral, so loopback redirects are matched by host and
+path instead of exact string equality. `127.0.0.1` and `localhost` stay
+distinct.
 
 The OAuth flow issues:
 
@@ -447,6 +457,24 @@ and that the user is still a member of the bound workspace.
 
 To connect ChatGPT, create a custom MCP app/server and use the URL above with
 OAuth authentication. No manual MCP API key is needed for ChatGPT.
+
+Other OAuth MCP hosts work the same way. For example, OpenCode:
+
+```jsonc
+{
+  "mcp": {
+    "servers": {
+      "meherah": {
+        "type": "remote",
+        "url": "https://<your-meherah-domain>/api/mcp",
+      },
+    },
+  },
+}
+```
+
+OpenCode registers a loopback client, then hands the browser to
+`/mcp/authorize` for consent after sign-in.
 
 ### Manual bearer credentials
 

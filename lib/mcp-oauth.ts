@@ -1,10 +1,12 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { anyRedirectUriMatches } from "@/convex/lib/mcpRedirects";
 
 const SCOPES = new Set(["mcp:read", "mcp:write", "offline_access"]);
 
 export type OAuthAuthorizationFields = {
   clientId: string;
+  clientName: string;
   redirectUri: string;
   codeChallenge: string;
   state: string;
@@ -29,6 +31,11 @@ export async function validateOAuthAuthorization(
   const codeChallengeMethod = value(params, "code_challenge_method");
   const state = value(params, "state");
   const resource = value(params, "resource");
+  // MCP hosts vary in whether they send `resource` (RFC 8707). The value is
+  // recorded as an audience hint and never re-checked after consent, so an
+  // absent value falls back to this deployment's single canonical resource
+  // while an explicitly mismatched one is still rejected.
+  const expectedResource = origin + "/api/mcp";
   const requestedScopes = (value(params, "scope") ?? "mcp:read mcp:write offline_access")
     .split(/\s+/)
     .filter(Boolean);
@@ -41,7 +48,7 @@ export async function validateOAuthAuthorization(
     !codeChallenge ||
     codeChallengeMethod !== "S256" ||
     !state ||
-    resource !== origin + "/api/mcp"
+    (resource !== null && resource !== expectedResource)
   ) {
     throw new Error("Invalid OAuth authorization request");
   }
@@ -56,16 +63,17 @@ export async function validateOAuthAuthorization(
   if (!convexUrl) throw new Error("Convex is not configured");
   const client = new ConvexHttpClient(convexUrl);
   const registered = await client.query(api.mcp.getOAuthClient, { clientId });
-  if (!registered || !registered.redirectUris.includes(redirectUri)) {
+  if (!registered || !anyRedirectUriMatches(registered.redirectUris, redirectUri)) {
     throw new Error("Unknown OAuth client or redirect URI");
   }
 
   return {
     clientId,
+    clientName: registered.clientName ?? "MCP client",
     redirectUri,
     codeChallenge,
     state,
-    resource,
+    resource: resource ?? expectedResource,
     scope: scopes.join(" "),
     scopes,
   };

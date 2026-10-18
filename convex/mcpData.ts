@@ -394,7 +394,7 @@ export const exchangeOAuthCode = internalMutation({
     await ctx.db.insert("mcpCredentials", {
       orgId: code.orgId,
       userId: code.userId,
-      name: "ChatGPT OAuth",
+      name: "MCP OAuth",
       tokenHash: args.accessTokenHash,
       tokenPrefix: args.accessTokenPrefix,
       expiresAt: Date.now() + expiresIn * 1000,
