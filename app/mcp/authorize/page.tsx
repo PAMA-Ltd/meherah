@@ -60,6 +60,7 @@ export default async function McpAuthorizePage({
   }
 
   const hidden = hiddenOAuthFields(fields);
+  const clientName = fields.clientName;
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-10">
@@ -68,10 +69,10 @@ export default async function McpAuthorizePage({
           Meherah MCP
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          Connect ChatGPT?
+          Connect {clientName}?
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          ChatGPT will be able to read and update your active Meherah
+          {clientName} will be able to read and update your active Meherah
           workspace. You can revoke this connection from Meherah at any time.
         </p>
 
@@ -107,7 +108,7 @@ export default async function McpAuthorizePage({
             type="submit"
             className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Authorize ChatGPT
+            Authorize {clientName}
           </button>
         </form>
 

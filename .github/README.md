@@ -128,7 +128,7 @@ Full setup lives in [`.docs/CONFIGURE.md`](../.docs/CONFIGURE.md):
 - **Figma integration** - creating the Figma OAuth app (redirect URI, granular scopes) and the `FIGMA_CLIENT_ID` / `FIGMA_CLIENT_SECRET` env vars
 - **Email digests** - Mailjet API env vars (`MAILJET_API_KEY`, `MAILJET_SECRET_KEY`, `MAILJET_FROM_EMAIL`, `MAILJET_FROM_NAME`) and the hourly delivery sweep
 - **AI models** - one `GEMINI_API_KEY`, default `gemini-3.8-flash`, and automatic legacy-embedding backfill
-- **MCP server** - same-deployment `/api/mcp`, ChatGPT OAuth 2.1 + PKCE, revocable workspace-scoped credentials
+- **MCP server** - same-deployment `/api/mcp`, ChatGPT and loopback OAuth 2.1 + PKCE clients, revocable workspace-scoped credentials
 
 Once configured: open [http://localhost:3000](http://localhost:3000), sign up, create an organization, and you are in.
 

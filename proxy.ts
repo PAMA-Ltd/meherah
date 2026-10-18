@@ -12,6 +12,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/mcp/oauth/register",
   "/api/mcp/oauth/token",
   "/api/mcp/oauth/revoke",
+  // Consent screen and its form target: both check the Clerk session
+  // themselves, so they stay public here. Protecting them in middleware would
+  // drop the OAuth request parameters before the route could read them.
+  "/mcp/authorize",
+  "/api/mcp/oauth/authorize/confirm",
   "/.well-known/oauth-protected-resource",
   "/.well-known/oauth-authorization-server",
 ]);

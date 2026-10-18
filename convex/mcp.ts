@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
 import { orgMutation, orgQuery } from "./lib/customFunctions";
+import { anyRedirectUriMatches, isAllowedRedirectUri } from "./lib/mcpRedirects";
 import { embedText } from "./agent/embeddings";
 import {
   AI_NOT_CONFIGURED_MESSAGE,
@@ -57,20 +58,6 @@ const WRITE_OPERATIONS = new Set([
 
 const MCP_SCOPES = new Set(["mcp:read", "mcp:write", "offline_access"]);
 
-function validChatGptRedirect(uri: string): boolean {
-  try {
-    const url = new URL(uri);
-    return (
-      url.protocol === "https:" &&
-      url.hostname === "chatgpt.com" &&
-      (url.pathname.startsWith("/connector/oauth/") ||
-        url.pathname === "/connector_platform_oauth_redirect")
-    );
-  } catch {
-    return false;
-  }
-}
-
 function normalizeScopes(scopes: string[]): string[] {
   const unique = [...new Set(scopes)];
   if (
@@ -119,9 +106,9 @@ export const registerOAuthClient = mutation({
       !/^mhr_client_[A-Za-z0-9_-]{32,}$/.test(args.clientId) ||
       args.redirectUris.length === 0 ||
       args.redirectUris.length > 10 ||
-      args.redirectUris.some((uri) => !validChatGptRedirect(uri))
+      args.redirectUris.some((uri) => !isAllowedRedirectUri(uri))
     ) {
-      throw new ConvexError("Invalid ChatGPT OAuth client registration");
+      throw new ConvexError("Invalid MCP OAuth client registration");
     }
     const existing = await ctx.db
       .query("mcpOAuthClients")
@@ -182,7 +169,7 @@ export const issueOAuthCode = orgMutation({
       .query("mcpOAuthClients")
       .withIndex("by_client_id", (q) => q.eq("clientId", args.clientId))
       .unique();
-    if (!client || !client.redirectUris.includes(args.redirectUri)) {
+    if (!client || !anyRedirectUriMatches(client.redirectUris, args.redirectUri)) {
       throw new ConvexError("OAuth client or redirect URI is invalid");
     }
     const scopes = normalizeScopes(args.scopes);
