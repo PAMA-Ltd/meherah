@@ -517,8 +517,12 @@ export async function POST(request: Request) {
           body.id,
           {
             content: [{ type: "text", text }],
+            // structuredContent must be a JSON object, so arrays are wrapped.
+            // A bare array is rejected by clients that validate the result.
             structuredContent:
-              result && typeof result === "object" ? result : { result },
+              result && typeof result === "object" && !Array.isArray(result)
+                ? result
+                : { result },
             isError: false,
           },
           modern
