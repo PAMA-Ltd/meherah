@@ -24,7 +24,10 @@ export default async function McpAuthorizePage({
 }) {
   const session = await auth();
   if (!session.userId) {
-    redirect("/sign-in");
+    // This route is public in the middleware, so the sign-in redirect happens
+    // here. Calling it without a return URL makes Clerk use the current
+    // request URL, which keeps every OAuth parameter intact for the round trip.
+    session.redirectToSignIn();
   }
   if (!session.orgId) {
     redirect("/onboarding");
