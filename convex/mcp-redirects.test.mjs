@@ -46,6 +46,36 @@ test("rejects redirect targets that are not callbacks", () => {
   expect(isLoopbackRedirect("https://chatgpt.com/connector/oauth/x")).toBe(false);
 });
 
+test("accepts Codex callbacks with a listener-specific path", () => {
+  expect(
+    isAllowedRedirectUri("http://127.0.0.1:58564/callback/uk3qVqzskXBg")
+  ).toBe(true);
+  expect(isAllowedRedirectUri("http://localhost:8080/callback/abc_123-x")).toBe(true);
+  expect(isAllowedRedirectUri("http://[::1]:9000/callback/abc123")).toBe(true);
+});
+
+test("rejects malformed or remote Codex callback paths", () => {
+  for (const uri of [
+    "http://127.0.0.1:8080/callback/",
+    "http://127.0.0.1:8080/callback/a/b",
+    "http://127.0.0.1:8080/callback/a%2Fb",
+    "http://127.0.0.1:8080/callback/abc?next=/x",
+    "http://127.0.0.1:8080/callback/abc#fragment",
+    "http://evil.example.com/callback/abc",
+    "https://127.0.0.1:8080/callback/abc",
+  ]) {
+    expect(isAllowedRedirectUri(uri), uri).toBe(false);
+  }
+});
+
+test("matches Codex callbacks across ports while preserving the callback ID and host", () => {
+  const registered = "http://127.0.0.1:1234/callback/uk3qVqzskXBg";
+  expect(redirectUriMatches(registered, "http://127.0.0.1:4321/callback/uk3qVqzskXBg")).toBe(true);
+  expect(redirectUriMatches(registered, "http://127.0.0.1:1234/callback/another-id")).toBe(false);
+  expect(redirectUriMatches(registered, "http://localhost:1234/callback/uk3qVqzskXBg")).toBe(false);
+  expect(redirectUriMatches(registered, "http://127.0.0.1:1234/callback")).toBe(false);
+});
+
 test("matches loopback URIs across ports but not across hosts", () => {
   expect(
     redirectUriMatches("http://127.0.0.1:1234/callback", "http://127.0.0.1:4321/callback")

@@ -438,7 +438,8 @@ Dynamic registration accepts two redirect families:
 
 - ChatGPT connector callbacks on `https://chatgpt.com/connector/...`;
 - RFC 8252 loopback callbacks such as `http://127.0.0.1/callback` or
-  `http://localhost:<port>/callback`, used by native MCP hosts.
+  `http://localhost:<port>/callback`, used by native MCP hosts, including
+  Codex callbacks at `http://127.0.0.1:<port>/callback/<id>`.
 
 Loopback ports are ephemeral, so loopback redirects are matched by host and
 path instead of exact string equality. `127.0.0.1` and `localhost` stay

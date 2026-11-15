@@ -26,8 +26,9 @@ const CHATGPT_HOSTNAME = "chatgpt.com";
 const CHATGPT_PATH_PREFIX = "/connector/oauth/";
 const CHATGPT_REDIRECT_PATH = "/connector_platform_oauth_redirect";
 
-/** Callback paths recommended by RFC 8252 section 7.3 for native apps. */
+/** Native hosts use fixed callbacks or a Codex listener-specific suffix. */
 const LOOPBACK_CALLBACK_PATHS = new Set(["/callback", "/oauth/callback"]);
+const CODEX_CALLBACK_PATH = /^\/callback\/[A-Za-z0-9_-]+$/;
 
 /** Host literals that mean "this machine". `URL` keeps IPv6 brackets. */
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -64,7 +65,10 @@ export function isLoopbackRedirect(uri: string): boolean {
   if (!LOOPBACK_HOSTNAMES.has(url.hostname)) return false;
   // Query strings and fragments would make the stored URI ambiguous to match.
   if (url.search || url.hash) return false;
-  return LOOPBACK_CALLBACK_PATHS.has(url.pathname);
+  return (
+    LOOPBACK_CALLBACK_PATHS.has(url.pathname) ||
+    CODEX_CALLBACK_PATH.test(url.pathname)
+  );
 }
 
 /** True when the URI may be registered as a dynamic client redirect target. */
