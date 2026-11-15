@@ -434,16 +434,18 @@ dynamically. The user signs in with the normal Clerk session, chooses the
 active Meherah workspace, reviews the requested permissions, and authorizes
 the connection.
 
-Dynamic registration accepts two redirect families:
-
-- ChatGPT connector callbacks on `https://chatgpt.com/connector/...`;
-- RFC 8252 loopback callbacks such as `http://127.0.0.1/callback` or
-  `http://localhost:<port>/callback`, used by native MCP hosts, including
-  Codex callbacks at `http://127.0.0.1:<port>/callback/<id>`.
+Dynamic registration accepts any HTTPS callback, including Muse, ChatGPT,
+and other hosted clients. There is no provider or callback-path allowlist.
+Native apps can also register HTTP loopback callbacks on `localhost`,
+`127.0.0.1`, or `[::1]`, with any path and optional query parameters.
+Callbacks must not contain embedded credentials or URL fragments.
 
 Loopback ports are ephemeral, so loopback redirects are matched by host and
 path instead of exact string equality. `127.0.0.1` and `localhost` stay
 distinct.
+
+Hosted callbacks must match the registered URI exactly. Loopback matching
+also preserves the registered query parameters; only the port can change.
 
 The OAuth flow issues:
 

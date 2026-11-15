@@ -54,10 +54,9 @@ export async function POST(request: Request) {
       {
         error: "invalid_redirect_uri",
         error_description:
-          `Unsupported redirect_uri: ${unsupported}. Register either an ` +
-          "https://chatgpt.com/connector/... callback or a loopback callback " +
-          "such as http://127.0.0.1/callback, http://localhost:<port>/callback, " +
-          "or http://127.0.0.1:<port>/callback/<id>.",
+          `Unsupported redirect_uri: ${unsupported}. Use an HTTPS callback ` +
+          "or an HTTP loopback callback (localhost, 127.0.0.1, or [::1]). " +
+          "Callbacks must not contain embedded credentials or URL fragments.",
       },
       { status: 400 }
     );
