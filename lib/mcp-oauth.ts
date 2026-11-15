@@ -1,6 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { anyRedirectUriMatches } from "@/convex/lib/mcpRedirects";
+import { authorizationScopes } from "@/convex/lib/mcpScopes";
 
 const SCOPES = new Set(["mcp:read", "mcp:write", "offline_access"]);
 
@@ -39,7 +40,6 @@ export async function validateOAuthAuthorization(
   const requestedScopes = (value(params, "scope") ?? "mcp:read mcp:write offline_access")
     .split(/\s+/)
     .filter(Boolean);
-  const scopes = [...new Set(requestedScopes)];
 
   if (
     responseType !== "code" ||
@@ -55,9 +55,10 @@ export async function validateOAuthAuthorization(
   if (!/^[A-Za-z0-9_-]{43}$/.test(codeChallenge)) {
     throw new Error("Invalid PKCE challenge");
   }
-  if (scopes.length === 0 || scopes.some((scope) => !SCOPES.has(scope))) {
+  if (requestedScopes.length === 0 || requestedScopes.some((scope) => !SCOPES.has(scope))) {
     throw new Error("Unsupported OAuth scope");
   }
+  const scopes = authorizationScopes(requestedScopes);
 
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   if (!convexUrl) throw new Error("Convex is not configured");

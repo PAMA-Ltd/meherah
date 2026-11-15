@@ -81,7 +81,7 @@ export default async function McpAuthorizePage({
 
         <div className="mt-5 rounded-xl border bg-muted/30 p-4">
           <p className="text-xs font-medium text-muted-foreground">
-            Requested permissions
+            Permissions you are granting
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {fields.scopes.map((scope) => (
@@ -92,7 +92,7 @@ export default async function McpAuthorizePage({
                 {scope === "mcp:read"
                   ? "Read workspace data"
                   : scope === "mcp:write"
-                    ? "Update workspace data"
+                    ? "Create, update, and delete workspace data"
                     : "Keep the connection active"}
               </span>
             ))}

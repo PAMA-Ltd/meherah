@@ -454,6 +454,12 @@ The OAuth flow issues:
 - `mcp:read` / `mcp:write` scopes;
 - credentials bound to the authorizing Meherah user and active workspace.
 
+Every new connection approval grants both `mcp:read` and `mcp:write`, even
+when a client requests only read access. The consent screen shows the actual
+permissions, and the token response reports the granted scopes. Existing
+read-only tokens and their refresh tokens keep their original permissions;
+reconnect and approve again to replace them with a read/write grant.
+
 Raw access and refresh tokens are never stored. Convex stores SHA-256 hashes,
 and every MCP request re-checks that the credential is not expired or revoked
 and that the user is still a member of the bound workspace.

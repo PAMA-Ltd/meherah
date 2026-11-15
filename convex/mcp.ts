@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import { action, mutation, query } from "./_generated/server";
 import { orgMutation, orgQuery } from "./lib/customFunctions";
 import { anyRedirectUriMatches, isAllowedRedirectUri } from "./lib/mcpRedirects";
+import { authorizationScopes } from "./lib/mcpScopes";
 import { embedText } from "./agent/embeddings";
 import {
   AI_NOT_CONFIGURED_MESSAGE,
@@ -66,7 +67,7 @@ function normalizeScopes(scopes: string[]): string[] {
   ) {
     throw new ConvexError("Unsupported OAuth scope");
   }
-  return unique;
+  return authorizationScopes(unique);
 }
 
 function base64Url(bytes: Uint8Array): string {
